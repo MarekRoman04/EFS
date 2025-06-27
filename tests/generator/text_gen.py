@@ -138,7 +138,7 @@ class FileGenerator:
             logger.info(f"{gen_name.capitalize()} generation started!")
             for idx, (size, size_range) in enumerate(self._size_range.items()):
                 for i in range(self._file_count[idx]):
-                    f_path = Path(self.output_dir / f"{gen_name}/{size}_{i}")
+                    f_path = Path(self.output_dir / f"{gen_name}/{size}/{i}")
                     f_size = random.randint(*size_range)
                     f_path.parent.mkdir(parents=True, exist_ok=True)
                     gen(f_path, f_size)

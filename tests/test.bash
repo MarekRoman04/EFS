@@ -3,8 +3,8 @@
 # --- CONFIG ---
 DEFAULT_TEST_PATH="./test_files"
 DEFAULT_PATTERNS_PATH="./patterns.txt"
-TEST_MODE=("binary" "random" "words")
-TEST_SIZE=("small" "medium" "large")
+TEST_MODE=("random" "words")
+TEST_SIZE=("small" "medium")
 
 run_tests()
 {
@@ -13,12 +13,14 @@ run_tests()
     TEST_FILES=${3:-$DEFAULT_TEST_PATH}
 
     for MODE in "${TEST_MODE[@]}"; do
-            for FILE in "$TEST_FILES/$MODE"/*; do
+        for SIZE in "${TEST_SIZE[@]}"; do
+            for FILE in "$TEST_FILES/$MODE"/$SIZE/*; do
                 echo "Checking: $FILE"
                 [ -f "$FILE" ] || continue
                 while IFS= read -r PATTERN; do
                     "$TEST_FUNCTION" "$PATTERN" "$FILE"
                 done < "$TEST_PATTERNS"
+            done
         done
         echo "$MODE file test finished!"
     done
@@ -28,8 +30,8 @@ string_search_test()
 {
     mkdir -p ./temp
     # EFS_RESULT=...
-    GREP_RESULT="./temp/test_str_temp.txt"
-    grep -F "$1" "$2" > "$GREP_RESULT"
+    # GREP_RESULT="./temp/test_str_temp.txt"
+    # grep -F "$1" "$2" > "$GREP_RESULT"
 
     # if ! diff -q "$EFS_RESULT" "$GREP_RESULT" >/dev/null; then
     #     echo "Error invalid line match in $FILE" >&2
@@ -38,7 +40,7 @@ string_search_test()
     # fi
 
     # EFS_COUNT=...
-    GREP_COUNT=$(grep -Fc "$1" "$2")
+    # GREP_COUNT=$(grep -Fc "$1" "$2")
     # echo $GREP_COUNT
 
     # if [ $EFS_COUNT != $GREP_COUNT ]; then
@@ -50,19 +52,18 @@ string_search_test()
     #     echo "$2: $GREP_COUNT"
     # fi
 
-    # EFS_FULL_COUNT=...
+    EFS_FULL_COUNT=$(./efs -c "$1" "$2")
     GREP_FULL_COUNT=$(grep -Fo "$1" "$2" | wc -l)
-    # echo $GREP_FULL_COUNT
 
-    # if [ $EFS_FULL_COUNT != $GREP_FULL_COUNT ]; then
-    #     echo "Error invalid full pattern count in $2" >&2
-    #     echo "Grep | wc: $GREP_FULL_COUNT" >&2
-    #     echo "EFS: $EFS_FULL_COUNT" >&2
-    # fi
+    if [ $EFS_FULL_COUNT != $GREP_FULL_COUNT ]; then
+        echo "Error invalid full count $1 in $2" >&2
+        echo "Grep | wc: $GREP_FULL_COUNT" >&2
+        echo "EFS: $EFS_FULL_COUNT" >&2
+    fi
 
     # EFS_WORD_RESULT=...
-    GREP_WORD_RESULT="./temp/test_w_str_temp.txt"
-    grep -Fw "$1" "$2" > "$GREP_WORD_RESULT"
+    # GREP_WORD_RESULT="./temp/test_w_str_temp.txt"
+    # grep -Fw "$1" "$2" > "$GREP_WORD_RESULT"
 
     # RESULT_DIFF=$(diff $EFS_WORD_RESULT $GREP_WORD_RESULT)
 
@@ -73,7 +74,7 @@ string_search_test()
     # fi
 
     # EFS_WORD_COUNT=...
-    GREP_WORD_COUNT=$(grep -Fcw "$1" "$2")
+    # GREP_WORD_COUNT=$(grep -Fcw "$1" "$2")
     # echo $GREP_WORD_COUNT
 
     # if [ $EFS_WORD_COUNT != $GREP_WORD_COUNT ]; then
@@ -84,7 +85,7 @@ string_search_test()
     # fi
 
     # EFS_WORD_FULL_COUNT=...
-    GREP_WORD_FULL_COUNT=$(grep -Fow "$1" "$2" | wc -l)
+    # GREP_WORD_FULL_COUNT=$(grep -Fow "$1" "$2" | wc -l)
     # echo $GREP_WORD_FULL_COUNT
 
     # if [ $EFS_WORD_FULL_COUNT != $GREP_WORD_FULL_COUNT ]; then
