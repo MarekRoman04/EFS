@@ -1,0 +1,36 @@
+#ifndef ARG_PARSER_H
+#define ARG_PARSER_H
+
+#include <stdlib.h>
+#include <string.h>
+
+#define FLAGS 9
+#define FLAG_COUNT (1 << 0)       // -c or --count flag
+#define FLAG_DIRECTORY (1 << 1)   // -d or --directory flag
+#define FLAG_FILE (1 << 2)        // -f or --file flag
+#define FLAG_IGNORE_CASE (1 << 3) // -i or --ignore-case flag
+#define FLAG_LINE_NUMBER (1 << 4) // -n or --line_number flag
+#define FLAG_QUIET (1 << 5)       // -q or --quiet flag
+#define FLAG_RECURSIVE (1 << 6)   // -r or --recursive flag
+#define FLAG_INVERT (1 << 7)      // -v or --invert-match flag
+#define FLAG_WORD (1 << 8)        // -w or --word flag
+
+typedef struct arg_parser
+{
+    int flags;
+    const char *pattern;
+    char **files;
+    int file_count;
+} cli_args;
+
+typedef struct long_option_map
+{
+    const char *opt;
+    int bit;
+} long_option_map;
+
+extern const long_option_map long_opts[];
+
+int parse_args(int argc, char *argv[], cli_args *args);
+
+#endif
