@@ -71,7 +71,7 @@ int parse_args(int argc, char *argv[], cli_args *args)
         if (!found)
         {
             invalid++;
-            // TODO: LOG_ERROR
+            log_info("Ignoring invalid option %s\n", argv[i]);
         }
     }
 
@@ -112,7 +112,7 @@ int parse_args(int argc, char *argv[], cli_args *args)
 
             default:
                 invalid++;
-                // TODO: LOG_ERROR
+                log_info("Ignoring invalid option %c\n", argv[i][j]);
                 break;
             }
         }

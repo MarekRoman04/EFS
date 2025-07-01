@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include "log.h"
 
 #define FLAGS 9
 #define FLAG_COUNT (1 << 0)       // -c or --count flag

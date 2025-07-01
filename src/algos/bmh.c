@@ -1,16 +1,16 @@
 #include "algo.h"
 
 unsigned char *bmh_pre_process(const char *pattern, const size_t length)
-{   
-    unsigned char *table = (unsigned char *)malloc(sizeof(char) * 256);
+{
+    unsigned char *table = (unsigned char *)malloc(256);
 
     if (!table)
-        LOG_ERROR("Memory allocation failed!");
+        log_error("Memory allocation failed!");
 
-    for (size_t i = 0; i < 256; i++)
+    for (unsigned char i = 0; i < 255; i++)
         table[i] = length;
 
-    for (size_t i = 0; i < length - 1; i++)
+    for (unsigned char i = 0; i < length - 1; i++)
         table[(unsigned char)pattern[i]] = length - 1 - i;
 
     return table;
@@ -23,7 +23,8 @@ size_t bmh_search(const unsigned char *table, const char *pattern, const size_t 
     while (skip <= string_length - pattern_length)
     {
         size_t j = 0;
-        for (; j < pattern_length; j++) {
+        for (; j < pattern_length; j++)
+        {
             if (string[skip + j] != pattern[j])
                 break;
         }

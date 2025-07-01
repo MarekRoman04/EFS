@@ -8,14 +8,17 @@ include_directories(include)
 set(SOURCES
     main.c
     src/algos/bmh.c
+    src/arg_parser.c
+    src/log.c
     src/string_search.c
     src/utils.c
 )
 
 # Header files
 set(HEADERS
-    include/log.h
     include/algo.h
+    include/arg_parser.h
+    include/log.h
     include/utils.h
 )
 

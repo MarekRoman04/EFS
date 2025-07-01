@@ -3,15 +3,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
-#define LOG_INFO(msg) \
-    fprintf(stderr, "[INFO] %s:%d: %s\n", __FILE__, __LINE__, (msg))
-
-#define LOG_ERROR(msg)                                                     \
-    do                                                                     \
-    {                                                                      \
-        fprintf(stderr, "[ERROR] %s:%d: %s\n", __FILE__, __LINE__, (msg)); \
-        exit(EXIT_FAILURE);                                                \
-    } while (0)
+void log_info(const char *fmt, ...);
+void log_error(const char *fmt, ...);
 
 #endif
