@@ -12,13 +12,6 @@ const long_option_map long_opts[] = {
     {NULL, 0},
 };
 
-static inline void argv_swap(char *argv[], int from, int to)
-{
-    char *temp = argv[to];
-    argv[to] = argv[from];
-    argv[from] = temp;
-}
-
 /*
 Parses input args int cli_args struct,
 first non flag arg is parsed as pattern,

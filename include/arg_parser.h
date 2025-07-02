@@ -32,6 +32,14 @@ typedef struct long_option_map
 
 extern const long_option_map long_opts[];
 
+static inline void argv_swap(char *argv[], int from, int to)
+{
+    printf("From: %d, to: %d\n", from, to);
+    char *temp = argv[to];
+    argv[to] = argv[from];
+    argv[from] = temp;
+}
+
 int parse_args(int argc, char *argv[], cli_args *args);
 
 #endif
