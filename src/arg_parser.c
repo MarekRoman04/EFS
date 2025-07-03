@@ -21,7 +21,9 @@ returns number of valid arguments
 
 int parse_args(int argc, char *argv[], cli_args *args)
 {
-    // Orders args, first --second -last, idx points one past arg type
+    /* Orders args, first --second -last, idx points one past arg type,
+    args are ordered to simplify input processing and heuristic
+    */
     int invalid = 0;
     int arg_idx, long_opt_idx;
 

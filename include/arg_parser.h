@@ -16,6 +16,8 @@
 #define FLAG_INVERT (1 << 7)      // -v or --invert-match flag
 #define FLAG_WORD (1 << 8)        // -w or --word flag
 
+#define FLAG_SET(flags, bit) (flags & bit)
+
 typedef struct arg_parser
 {
     int flags;
@@ -34,7 +36,6 @@ extern const long_option_map long_opts[];
 
 static inline void argv_swap(char *argv[], int from, int to)
 {
-    printf("From: %d, to: %d\n", from, to);
     char *temp = argv[to];
     argv[to] = argv[from];
     argv[from] = temp;

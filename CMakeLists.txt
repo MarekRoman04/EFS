@@ -9,6 +9,7 @@ set(SOURCES
     main.c
     src/algos/bmh.c
     src/arg_parser.c
+    src/file.c
     src/log.c
     src/string_search.c
     src/utils.c
@@ -18,8 +19,10 @@ set(SOURCES
 set(HEADERS
     include/algo.h
     include/arg_parser.h
+    include/file.h
     include/log.h
     include/utils.h
 )
 
+add_compile_definitions(DEBUG)
 add_executable(efs ${SOURCES} ${HEADERS})
