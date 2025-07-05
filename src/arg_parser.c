@@ -6,6 +6,7 @@ const long_option_map long_opts[] = {
     {"file", FLAG_FILE},
     {"ignore-case", FLAG_IGNORE_CASE},
     {"line-number", FLAG_LINE_NUMBER},
+    {"list", FLAG_LIST},
     {"recursive", FLAG_RECURSIVE},
     {"invert-match", FLAG_INVERT},
     {"word", FLAG_WORD},
@@ -88,6 +89,9 @@ int parse_args(int argc, char *argv[], cli_args *args)
                 break;
             case 'i':
                 args->flags |= FLAG_IGNORE_CASE;
+                break;
+            case 'l':
+                args->flags |= FLAG_LIST;
                 break;
             case 'n':
                 args->flags |= FLAG_LINE_NUMBER;

@@ -1,4 +1,8 @@
 #include "algo.h"
+#include "data.h"
+
+static inline unsigned char *bmh_pre_process(const char *pattern, const size_t length);
+static inline size_t bmh_search(const unsigned char *table, const char *pattern, const size_t pattern_length, const char *string, const size_t string_length);
 
 unsigned char *bmh_pre_process(const char *pattern, const size_t length)
 {
@@ -37,10 +41,12 @@ size_t bmh_search(const unsigned char *table, const char *pattern, const size_t 
     return BMH_NOT_FOUND;
 }
 
-int bmh_count(const char *pattern, const char *string)
+int bmh_count(const string *str_pattern, const string *str_string)
 {
-    size_t pattern_length = strlen(pattern);
-    size_t string_length = strlen(string);
+    const char *pattern = str_pattern->data;
+    size_t pattern_length = str_pattern->length;
+    const char *string = str_string->data;
+    size_t string_length = str_string->length;
     unsigned char *char_table = bmh_pre_process(pattern, pattern_length);
     size_t loc = 0;
     int count = 0;
@@ -58,4 +64,15 @@ int bmh_count(const char *pattern, const char *string)
 
     free(char_table);
     return count;
+}
+
+int bmh_find(const string *str_pattern, const string *str_string)
+{
+    const char *pattern = str_pattern->data;
+    size_t pattern_length = str_pattern->length;
+    const char *string = str_string->data;
+    size_t string_length = str_string->length;
+    unsigned char *char_table = bmh_pre_process(pattern, pattern_length);
+
+    return bmh_search(char_table, pattern, pattern_length, string, string_length);
 }

@@ -1,3 +1,4 @@
+#include "data.h"
 #include "file.h"
 
 file_map map_direct_files(cli_args *args)
@@ -101,3 +102,4 @@ dir_map map_direct_directories(cli_args *args)
 rec_dir_map map_recursive(cli_args *args)
 {
 }
+
