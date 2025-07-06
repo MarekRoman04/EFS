@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10.0)
-project(EFS VERSION 0.2.0 LANGUAGES C)
+project(EFS VERSION 0.2.1 LANGUAGES C)
 
 # Header file directory
 include_directories(include)

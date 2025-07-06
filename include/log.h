@@ -23,8 +23,8 @@ void log_errno_impl(int level, const char *path, const char *file, int line);
     log_error_impl(NULL, 0, fmt, ##__VA_ARGS__)
 #define log_info(fmt, ...) \
     log_info_impl(NULL, 0, fmt, ##__VA_ARGS__)
-#define log_errno(level, path, file, line) \
-    log_errno_impl(leve, path, NULL, 0)
+#define log_errno(level, path) \
+    log_errno_impl(level, path, NULL, 0)
 #endif
 
 #endif

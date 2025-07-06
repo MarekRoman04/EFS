@@ -1,8 +1,10 @@
 #include "algo.h"
 #include "data.h"
 
-static inline unsigned char *bmh_pre_process(const char *pattern, const size_t length);
 static inline size_t bmh_search(const unsigned char *table, const char *pattern, const size_t pattern_length, const char *string, const size_t string_length);
+unsigned char *bmh_pre_process(const char *pattern, const size_t length);
+int bmh_count(unsigned char *table, const string *str_pattern, const string *str_string);
+int bmh_find(unsigned char *table, const string *str_pattern, const string *str_string);
 
 unsigned char *bmh_pre_process(const char *pattern, const size_t length)
 {
@@ -41,7 +43,7 @@ size_t bmh_search(const unsigned char *table, const char *pattern, const size_t 
     return BMH_NOT_FOUND;
 }
 
-int bmh_count(const string *str_pattern, const string *str_string)
+int bmh_count(unsigned char *table, const string *str_pattern, const string *str_string)
 {
     const char *pattern = str_pattern->data;
     size_t pattern_length = str_pattern->length;
@@ -66,7 +68,7 @@ int bmh_count(const string *str_pattern, const string *str_string)
     return count;
 }
 
-int bmh_find(const string *str_pattern, const string *str_string)
+int bmh_find(unsigned char *table, const string *str_pattern, const string *str_string)
 {
     const char *pattern = str_pattern->data;
     size_t pattern_length = str_pattern->length;

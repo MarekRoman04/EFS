@@ -55,34 +55,42 @@ void start_search(const string *pattern, const search_buffer *buffer)
 static inline void string_search_count(const string *pattern, const search_buffer *buffer)
 {
     int result = 0;
+    unsigned char *bmh_table = bmh_pre_process(pattern->data, pattern->length);
     string str_file = {.data = buffer->buffer, .length = 0};
-    while ((str_file.length = read_file_chunk(buffer, pattern->length)))
+    while ((str_file.length = read_file_chunk(buffer, pattern->length)) > pattern->length)
     {
-        result += bmh_count(pattern, &str_file);
+        result += bmh_count(bmh_table, pattern, &str_file);
     }
 
     printf("%s: %d\n", buffer->f_path, result);
+    free(bmh_table);
 }
 
 static inline void string_search_list(const string *pattern, const search_buffer *buffer)
 {
+    unsigned char *bmh_table = bmh_pre_process(pattern->data, pattern->length);
     string str_file = {.data = buffer->buffer, .length = 0};
-    while ((str_file.length = read_file_chunk(buffer, pattern->length)))
+    while ((str_file.length = read_file_chunk(buffer, pattern->length)) > pattern->length)
     {
-        if (bmh_count(pattern, &str_file) != BMH_NOT_FOUND)
+        if (bmh_find(bmh_table, pattern, &str_file) != BMH_NOT_FOUND)
         {
             printf("%s\n", buffer->f_path);
             return;
         }
     }
+
+    free(bmh_table);
 }
 
 static inline void string_search_quiet(const string *pattern, const search_buffer *buffer)
 {
+    unsigned char *bmh_table = bmh_pre_process(pattern->data, pattern->length);
     string str_file = {.data = buffer->buffer, .length = 0};
-    while ((str_file.length = read_file_chunk(buffer, pattern->length)))
+    while ((str_file.length = read_file_chunk(buffer, pattern->length)) > pattern->length)
     {
-        if (bmh_count(pattern, &str_file) != BMH_NOT_FOUND)
+        if (bmh_find(bmh_table, pattern, &str_file) != BMH_NOT_FOUND)
             exit(EXIT_SUCCESS);
     }
+
+    free(bmh_table);
 }

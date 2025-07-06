@@ -36,10 +36,10 @@ typedef struct rec_map
 file_map map_direct_files(cli_args *args);
 dir_map map_direct_directories(cli_args *args);
 
-static inline int read_file_chunk(const search_buffer *buffer, size_t offset)
+static inline size_t read_file_chunk(const search_buffer *buffer, size_t offset)
 {
-    fseek(buffer->fp, -offset, SEEK_CUR);
-    size_t read = fread(buffer->buffer, buffer->buffer_size, buffer->buffer_size - 1, buffer->fp);
+    fseek(buffer->fp, -(long)offset, SEEK_CUR);
+    size_t read = fread(buffer->buffer, 1, buffer->buffer_size - 1, buffer->fp);
     buffer->buffer[read] = '\0';
     return read;
 }
