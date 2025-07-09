@@ -15,24 +15,35 @@
 #define FLAG_RECURSIVE (1 << 7)   // -r or --recursive flag
 #define FLAG_INVERT (1 << 8)      // -v or --invert-match flag
 #define FLAG_WORD (1 << 9)        // -w or --word flag
-
 #define FLAG_SET(flags, bit) (flags & bit)
 
 typedef struct arg_parser
 {
-    int flags;
     const char *pattern;
     char **files;
     int file_count;
+    // optional arguments
+    int flags;
+    size_t buffer_size;        // --buffer-size
+    const char *out_path;      // -o or --output
+    unsigned int thread_count; // --thread-count or --single-thread
 } cli_args;
 
-typedef struct long_option_map
+typedef struct long_opt
 {
-    const char *opt;
-    int bit;
-} long_option_map;
+    const char *opt_name;
+    int opt_name_length;
+    void (*set_opt)(cli_args *args, const char *value);
+} long_opt;
 
-extern const long_option_map long_opts[];
+typedef struct long_flag
+{
+    const char *flag;
+    int bit;
+} long_flag;
+
+extern const long_flag long_flags_map[];
+extern const long_opt long_opts_map[];
 
 static inline void argv_swap(char *argv[], int from, int to)
 {
@@ -41,6 +52,6 @@ static inline void argv_swap(char *argv[], int from, int to)
     argv[from] = temp;
 }
 
-int parse_args(int argc, char *argv[], cli_args *args);
+cli_args parse_args(int argc, char *argv[]);
 
 #endif
