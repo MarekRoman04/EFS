@@ -26,8 +26,5 @@ typedef struct search_data
 } search_data;
 
 int start_file_search(cli_args *args);
-inline int handle_quiet_search(search_data *sd, file_list *fl);
-inline int handle_list_search(search_data *sd, file_list *fl);
-inline int handle_count_search(search_data *sd, file_list *fl);
 
 #endif

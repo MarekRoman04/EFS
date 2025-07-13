@@ -3,12 +3,12 @@
 #include "file_stream.h"
 #include "search.h"
 
+static inline int quiet_search(search_data *sd, file_list *fl);
+static inline int list_search(search_data *sd, file_list *fl);
+static inline int count_search(search_data *sd, file_list *fl);
+static inline int line_number_search(search_data *sd, file_list *fl);
+static inline int print_search(search_data *sd, file_list *fl);
 int start_file_search(cli_args *args);
-inline int handle_quiet_search(search_data *sd, file_list *fl);
-inline int handle_list_search(search_data *sd, file_list *fl);
-inline int handle_count_search(search_data *sd, file_list *fl);
-// static inline int line_number_search(cli_args *args);
-// static inline int print_search(cli_args *args);
 
 int start_file_search(cli_args *args)
 {
@@ -70,19 +70,19 @@ int start_file_search(cli_args *args)
     switch (args->flags)
     {
     case FLAG_QUIET:
-        ret_val = handle_quiet_search(&sd, &fl);
+        ret_val = quiet_search(&sd, &fl);
         break;
     case FLAG_LIST:
-        ret_val = handle_list_search(&sd, &fl);
+        ret_val = list_search(&sd, &fl);
         break;
     case FLAG_COUNT:
-        ret_val = handle_count_search(&sd, &fl);
+        ret_val = count_search(&sd, &fl);
         break;
     case FLAG_LINE_NUMBER:
-        /* code */
+        ret_val = line_number_search(&sd, &fl);
         break;
     default:
-        /* code */
+        ret_val = print_search(&sd, &fl);
         break;
     }
 
@@ -91,10 +91,12 @@ int start_file_search(cli_args *args)
     return ret_val;
 }
 
-inline int handle_quiet_search(search_data *sd, file_list *fl)
+static inline int quiet_search(search_data *sd, file_list *fl)
 {
-    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
     size_t read;
+    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
+    if (!fs)
+        log_error("Error creating file_stream!");
 
     do
     {
@@ -119,11 +121,13 @@ inline int handle_quiet_search(search_data *sd, file_list *fl)
     return 1;
 }
 
-inline int handle_list_search(search_data *sd, file_list *fl)
+static inline int list_search(search_data *sd, file_list *fl)
 {
     int ret_val = 1;
-    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
     size_t read;
+    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
+    if (!fs)
+        log_error("Error creating file_stream!");
 
     do
     {
@@ -149,11 +153,13 @@ inline int handle_list_search(search_data *sd, file_list *fl)
     return ret_val;
 }
 
-inline int handle_count_search(search_data *sd, file_list *fl)
+static inline int count_search(search_data *sd, file_list *fl)
 {
     int ret_val = 1;
-    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
     size_t read;
+    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
+    if (!fs)
+        log_error("Error creating file_stream!");
 
     do
     {
@@ -172,6 +178,48 @@ inline int handle_count_search(search_data *sd, file_list *fl)
         }
 
         fprintf(sd->out_p, "%s: %d\n", *(fs->current_file), found);
+    } while (fs_has_file(fs));
+
+    fs_end(fs);
+    return ret_val;
+}
+
+static inline int line_number_search(search_data *sd, file_list *fl)
+{
+}
+
+static inline int print_search(search_data *sd, file_list *fl)
+{
+    int ret_val = 1;
+    size_t read;
+    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
+    if (!fs)
+        log_error("Error creating file_stream!");
+
+    size_t loc = 0;
+    bmh_stream *bmhs = bmhs_init(sd->table, sd->pattern, sd->pattern_length, sd->buffer, sd->buffer_size);
+    if (!bmhs)
+        log_error("Error creating bmh_stream!");
+
+    do
+    {
+        while (fs->current_file && fs_open_file(fs, "r"))
+            fs_skip_file(fs);
+
+        if (!fs->current_file)
+            break;
+
+        while ((read = fs_read_file(fs, sd->buffer, sd->buffer_size)))
+        {
+            bmhs_add_data(bmhs, sd->buffer, sd->buffer_size);
+
+            while ((loc = bmhs_loc(bmhs)) != BMH_NOT_FOUND)
+            {
+                fprintf(sd->out_p, "%ld, ", loc);
+                ret_val = 0;
+            }
+        }
+
     } while (fs_has_file(fs));
 
     fs_end(fs);

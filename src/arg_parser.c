@@ -4,7 +4,7 @@
 #define ERROR_MISSING_ARGS log_error(MISSING_ARGS_MESSAGE)
 #define INFO_INVALID_ARG(arg) log_info("Ignoring: %s, unknown option given!", arg)
 #define ERROR_INVALID_ARG_VALUE(arg) log_error("Invalid %s, value given!", arg)
-#define ERROR_MISSING_ARG_VALUE(arg) log_error("Missing %s");
+#define ERROR_MISSING_ARG_VALUE(arg) log_error("Missing %s", arg);
 
 static inline void set_out_path(cli_args *args, const char *value);
 static inline void set_buffer_size(cli_args *args, const char *value);
