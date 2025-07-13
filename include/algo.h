@@ -5,13 +5,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "data.h"
 #include "log.h"
 
 #define BMH_NOT_FOUND ((size_t)-1)
 
-unsigned char *bmh_pre_process(const char *pattern, const size_t length);
-int bmh_count(unsigned char *table, const string *str_pattern, const string *str_string);
-int bmh_find(unsigned char *table, const string *str_pattern, const string *str_string);
+typedef unsigned char bmh_table;
+
+bmh_table *bmh_pre_process(const char *pattern, unsigned char pattern_length);
+int bmh_count(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data,
+              size_t data_length, unsigned char start_idx, unsigned char *end_idx);
+int bmh_find(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data,
+             size_t data_length, unsigned char start_idx, unsigned char *end_idx);
 
 #endif

@@ -6,11 +6,28 @@
 
 #include "algo.h"
 #include "arg_parser.h"
-#include "data.h"
 #include "file.h"
 #include "log.h"
 
-void process_data(cli_args *args);
-void start_search(const string *pattern, const search_buffer *buffer);
+#define DEFAULT_BUFFER_SIZE 16384
+#define MIN_BUFFER_SIZE 4096
+#define DEFAULT_OUT_PATH stdout;
+
+typedef struct search_data
+{
+    const char *pattern;
+    size_t pattern_length;
+    bmh_table *table;
+    char *buffer;
+    size_t buffer_size;
+    // Cli arguments
+    int flags;
+    FILE* out_p;
+} search_data;
+
+int start_file_search(cli_args *args);
+inline int handle_quiet_search(search_data *sd, file_list *fl);
+inline int handle_list_search(search_data *sd, file_list *fl);
+inline int handle_count_search(search_data *sd, file_list *fl);
 
 #endif

@@ -1,80 +1,95 @@
 #include "algo.h"
-#include "data.h"
 
-static inline size_t bmh_search(const unsigned char *table, const char *pattern, const size_t pattern_length, const char *string, const size_t string_length);
-unsigned char *bmh_pre_process(const char *pattern, const size_t length);
-int bmh_count(unsigned char *table, const string *str_pattern, const string *str_string);
-int bmh_find(unsigned char *table, const string *str_pattern, const string *str_string);
+static inline size_t bmh_search(const bmh_table *table, const char *pattern, unsigned char pattern_length,
+                                const char *data, size_t data_length, unsigned char start_idx, unsigned char *end_idx);
+bmh_table *bmh_pre_process(const char *pattern, unsigned char pattern_length);
+int bmh_count(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data,
+              size_t data_length, unsigned char start_idx, unsigned char *end_idx);
+int bmh_find(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data,
+             size_t data_length, unsigned char start_idx, unsigned char *end_idx);
 
-unsigned char *bmh_pre_process(const char *pattern, const size_t length)
+// Returns table containing skippable characters for each char in pattern
+bmh_table *bmh_pre_process(const char *pattern, unsigned char pattern_length)
 {
-    unsigned char *table = (unsigned char *)malloc(256);
+    bmh_table *table = (bmh_table *)malloc(sizeof(unsigned char) * 256);
 
     if (!table)
         log_error("Memory allocation failed!");
 
     for (unsigned char i = 0; i < 255; i++)
-        table[i] = length;
+        table[i] = pattern_length;
 
-    for (unsigned char i = 0; i < length - 1; i++)
-        table[(unsigned char)pattern[i]] = length - 1 - i;
+    for (unsigned char i = 0; i < pattern_length - 1; i++)
+        table[(unsigned char)pattern[i]] = pattern_length - 1 - i;
 
     return table;
 }
 
-size_t bmh_search(const unsigned char *table, const char *pattern, const size_t pattern_length, const char *string, const size_t string_length)
+/*
+ * Returns location of pattern in given data, if not found returns BHM_NOT_FOUND,
+ * and sets end_idx to number of match characters
+ */
+static inline size_t bmh_search(const bmh_table *table, const char *pattern, unsigned char pattern_length,
+                                const char *data, size_t data_length, unsigned char start_idx, unsigned char *end_idx)
 {
-    size_t skip = 0;
+    if (data_length < pattern_length)
+        return BMH_NOT_FOUND;
 
-    while (skip <= string_length - pattern_length)
+    size_t loc = 0;
+    size_t j = 0;
+
+    while (loc <= data_length - pattern_length)
     {
-        size_t j = 0;
+        j = start_idx;
+        start_idx = 0;
+
         for (; j < pattern_length; j++)
         {
-            if (string[skip + j] != pattern[j])
+            if (data[loc + j] != pattern[j])
                 break;
         }
         if (j == pattern_length)
-            return skip;
+        {
+            *end_idx = 0;
+            return loc;
+        }
 
-        skip += table[(unsigned char)string[skip + pattern_length - 1]];
+        loc += table[(unsigned char)data[loc + pattern_length - 1]];
     }
 
+    *end_idx = j;
     return BMH_NOT_FOUND;
 }
 
-int bmh_count(unsigned char *table, const string *str_pattern, const string *str_string)
+/*
+ * Returns number of occurences of pattern in given data,
+ * sets end_idx to last matched character index in pattern before end of data
+ */
+int bmh_count(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data,
+              size_t data_length, unsigned char start_idx, unsigned char *end_idx)
 {
-    const char *pattern = str_pattern->data;
-    size_t pattern_length = str_pattern->length;
-    const char *string = str_string->data;
-    size_t string_length = str_string->length;
-    unsigned char *char_table = bmh_pre_process(pattern, pattern_length);
-    size_t loc = 0;
-    int count = 0;
+    int found = 0;
+    size_t data_loc = 0;
 
-    while (loc <= string_length - pattern_length)
+    while (data_loc < data_length)
     {
-        size_t match = bmh_search(char_table, pattern, pattern_length, string + loc, string_length - loc);
+        size_t loc;
+        if ((loc = bmh_search(table, pattern, pattern_length, data + data_loc, data_length - data_loc, start_idx, end_idx)) == BMH_NOT_FOUND)
+            return found;
 
-        if (match == BMH_NOT_FOUND)
-            break;
-
-        count++;
-        loc += match + pattern_length;
+        found++;
+        data_loc += loc + pattern_length;
     }
 
-    free(char_table);
-    return count;
+    return found;
 }
 
-int bmh_find(unsigned char *table, const string *str_pattern, const string *str_string)
+/*
+ * Returns 0 if data contains pattern,
+ * sets end_idx to last matched character index in pattern before end of data
+ */
+int bmh_find(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data,
+             size_t data_length, unsigned char start_idx, unsigned char *end_idx)
 {
-    const char *pattern = str_pattern->data;
-    size_t pattern_length = str_pattern->length;
-    const char *string = str_string->data;
-    size_t string_length = str_string->length;
-    unsigned char *char_table = bmh_pre_process(pattern, pattern_length);
-
-    return bmh_search(char_table, pattern, pattern_length, string, string_length);
+    return bmh_search(table, pattern, pattern_length, data, data_length, start_idx, end_idx) == BMH_NOT_FOUND ? 1 : 0;
 }

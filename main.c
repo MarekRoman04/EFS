@@ -12,22 +12,19 @@
 
 int main(int argc, char *argv[])
 {
-    cli_args args = {.flags = 0};
-    int arg_count = parse_args(argc, argv, &args);
-    int fc = args.file_count;
+    cli_args args = parse_args(argc, argv);
 
-    if (FLAG_SET(args.flags, FLAG_DIRECTORY))
+    switch (args.flags)
     {
-        dir_map dm = map_direct_directories(&args);
+    case FLAG_RECURSIVE:
+        // return start_rec_search(args);
+        break;
+    case FLAG_DIRECTORY:
+        // return start_dir_search(args);
+        break;
+    default:
+        return start_file_search(&args);
     }
-    else
-    {
-        file_map fm = map_direct_files(&args);
-    }
-
-    process_data(&args);
-
-    return FLAG_SET(args.flags, FLAG_QUIET) ? 1 : 0;
 }
 
 #else
@@ -38,64 +35,30 @@ int main(int argc, char *argv[])
     printf("---Arg parsing---\n");
     printf("-----------------\n");
 
-    cli_args args = {.flags = 0};
-    int arg_count = parse_args(argc, argv, &args);
-    int fc = args.file_count;
+    cli_args args = parse_args(argc, argv);
 
-    printf("Valid args count: %d\n", arg_count);
-    printf("Flags: %x\n", args.flags);
     printf("Pattern: %s\n", args.pattern);
-    printf("Files found: %d\n", args.file_count);
-    for (size_t i = 0; i < args.file_count; i++)
+    printf("Files: %d\n", args.file_count);
+    for (int i = 0; i < args.file_count; i++)
     {
         printf("%s\n", args.files[i]);
     }
+    printf("Flags: %x\n", args.flags);
+    printf("Buffer: %ld\n", args.buffer_size);
+    printf("Out path: %s\n", args.out_path);
+    printf("Threads: %d\n", args.thread_count);
 
-    if (FLAG_SET(args.flags, FLAG_DIRECTORY))
+    switch (args.flags)
     {
-        printf("-----------------\n");
-        printf("---Dir mapping---\n");
-        printf("-----------------\n");
-        dir_map dm = map_direct_directories(&args);
-        printf("Directories found: %d\n", dm.dir_count);
-        for (size_t i = 0; i < dm.dir_count; i++)
-        {
-            printf("%s\n", dm.dir_paths[i]);
-        }
-        printf("File count: %d\n", dm.file_count);
-        printf("Total size: %ld\n", dm.total_file_size);
-        printf("Directories full: %d\n", args.file_count);
-        for (size_t i = 0; i < fc; i++)
-        {
-            printf("%s\n", args.files[i]);
-        }
+    case FLAG_RECURSIVE:
+        // return start_rec_search(args);
+        break;
+    case FLAG_DIRECTORY:
+        // return start_dir_search(args);
+        break;
+    default:
+        return start_file_search(&args);
     }
-    else
-    {
-        printf("-----------------\n");
-        printf("--File mapping---\n");
-        printf("-----------------\n");
-        file_map fm = map_direct_files(&args);
-        printf("Files found: %d\n", fm.file_count);
-        for (size_t i = 0; i < fm.file_count; i++)
-        {
-            printf("%s\n", fm.file_paths[i]);
-        }
-        printf("Total size: %ld\n", fm.total_size);
-
-        printf("Files full: %d\n", args.file_count);
-        for (size_t i = 0; i < fc; i++)
-        {
-            printf("%s\n", args.files[i]);
-        }
-    }
-
-    printf("-----------------\n");
-    printf("----Searching----\n");
-    printf("-----------------\n");
-    process_data(&args);
-
-    return FLAG_SET(args.flags, FLAG_QUIET) ? 1 : 0;
 }
 
 #endif

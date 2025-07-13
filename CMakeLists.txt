@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10.0)
-project(EFS VERSION 0.2.1 LANGUAGES C)
+project(EFS VERSION 0.3.0 LANGUAGES C)
 
 # Header file directory
 include_directories(include)
@@ -10,17 +10,19 @@ set(SOURCES
     src/algos/bmh.c
     src/arg_parser.c
     src/file.c
+    src/file_stream.c
     src/log.c
-    src/string_search.c
+    src/search/file_search.c
 )
 
 # Header files
 set(HEADERS
     include/algo.h
     include/arg_parser.h
-    include/data.h
     include/file.h
+    include/file_stream.h
     include/log.h
+    include/search.h
 )
 
 add_compile_definitions(DEBUG)

@@ -5,16 +5,19 @@
 #include <string.h>
 #include "log.h"
 
-#define FLAG_COUNT (1 << 0)       // -c or --count flag
-#define FLAG_DIRECTORY (1 << 1)   // -d or --directory flag
-#define FLAG_FILE (1 << 2)        // -f or --file flag
-#define FLAG_IGNORE_CASE (1 << 3) // -i or --ignore-case flag
-#define FLAG_LINE_NUMBER (1 << 4) // -n or --line_number flag
-#define FLAG_LIST (1 << 5)        // -l or --list
-#define FLAG_QUIET (1 << 6)       // -q or --quiet flag
-#define FLAG_RECURSIVE (1 << 7)   // -r or --recursive flag
-#define FLAG_INVERT (1 << 8)      // -v or --invert-match flag
-#define FLAG_WORD (1 << 9)        // -w or --word flag
+#define FLAG_COUNT (1 << 0)          // -c or --count flag
+#define FLAG_DIRECTORY (1 << 1)      // -d or --directory flag
+#define FLAG_FILE (1 << 2)           // -f or --file flag
+#define FLAG_IGNORE_CASE (1 << 3)    // -i or --ignore-case flag
+#define FLAG_LINE_NUMBER (1 << 4)    // -n or --line_number flag
+#define FLAG_LIST (1 << 5)           // -l or --list
+#define FLAG_QUIET (1 << 6)          // -q or --quiet flag
+#define FLAG_RECURSIVE (1 << 7)      // -r or --recursive flag
+#define FLAG_INVERT (1 << 8)         // -v or --invert-match flag
+#define FLAG_WORD (1 << 9)           // -w or --word flag
+#define FLAG_SINGLE_THREAD (1 << 10) // --signle-thread flag
+
+#define FLAG_EMPTY 0
 #define FLAG_SET(flags, bit) (flags & bit)
 
 typedef struct arg_parser

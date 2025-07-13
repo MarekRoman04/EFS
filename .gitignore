@@ -4,3 +4,4 @@ tests/test_files
 tests/patterns.txt
 tests/temp
 tests/efs
+tests/patterns

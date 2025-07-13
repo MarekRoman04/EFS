@@ -17,8 +17,8 @@ const char *HELP_MESSAGE =
     "\n"
     "Options:\n"
     "  -c, --count           Print only a count of matching lines per file\n"
-    "  -d, --directory       Treat directories as files\n"
-    "  -f, --file            Search only regular files (ignore other types)\n"
+    "  -d, --directory       Search all files in directory\n"
+    "  -f, --file            Search patterns from file (pattern = line in file)\n"
     "  -i, --ignore-case     Perform case-insensitive matching\n"
     "  -n, --line-number     Show line number for each match\n"
     "  -l, --list            List only names of matching files\n"
@@ -26,11 +26,11 @@ const char *HELP_MESSAGE =
     "  -r, --recursive       Recursively search directories\n"
     "  -v, --invert-match    Select non-matching lines\n"
     "  -w, --word            Match only whole words\n"
-    "  -o, --output=FILE     Write output to FILE instead of standard output\n"
+    "      --output=FILE     Write output to FILE instead of standard output\n"
     "      --buffer-size=N   Set internal buffer size in bytes (default: 8192)\n"
     "      --thread-count=N  Set number of worker threads\n"
     "      --single-thread   Force single-threaded operation\n"
-    "  -h, --help            Display this help and exit\n";
+    "      --help            Display this help and exit\n";
 
 const char *MISSING_ARGS_MESSAGE = "Few or no arguments given!, try --help for more info!";
 
@@ -52,6 +52,7 @@ const long_flag long_flags_map[] = {
     {"recursive", FLAG_RECURSIVE},
     {"invert-match", FLAG_INVERT},
     {"word", FLAG_WORD},
+    {"single-thread", FLAG_SINGLE_THREAD},
     NULL,
 };
 

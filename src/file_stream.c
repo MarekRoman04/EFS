@@ -10,13 +10,13 @@ void fs_skip_file(file_stream *fs);
 int fs_close_file(file_stream *fs);
 int fs_end(file_stream *fs);
 
-// Initializes file stream struct for file stream functions
+// Initializes file stream struct
 file_stream *fs_init(char **f_paths, int f_count)
 {
     file_stream *fs = (file_stream *)malloc(sizeof(file_stream));
     if (!fs)
     {
-        log_info("Error allocating memory!");
+        log_info("Error allocating file_stream!");
         return NULL;
     }
 
@@ -59,7 +59,7 @@ size_t fs_read_file(file_stream *fs, char *buffer, size_t buffer_size)
     if (!fs->current_fp)
     {
         log_info("No file opened to read from!");
-        return 0;        
+        return 0;
     }
 
     int fd = fileno(fs->current_fp);
