@@ -10,7 +10,8 @@ set(SOURCES
     src/algos/bmh.c
     src/arg_parser.c
     src/file.c
-    src/file_stream.c
+    src/file_stream/file_stream.c
+    src/file_stream/line_stream.c
     src/log.c
     src/search/file_search.c
 )
