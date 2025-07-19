@@ -5,6 +5,7 @@ static inline void line_buffer_free(line_buffer *buffer);
 static inline ls_internal *ls_internal_init(const char *file_path, char *buffer, size_t buffer_size);
 line_stream *fs_ls_init(const char *file_path, char *buffer, size_t buffer_size);
 int fs_ls_read_line(line_stream *ls);
+int fs_ls_change_file(line_stream *ls, const char *file_path);
 int fs_ls_end(line_stream *ls);
 
 // Allocates line buffer node
@@ -43,14 +44,17 @@ static inline void line_buffer_free(line_buffer *buffer)
 
     while (lb_next)
     {
+        free(lb->buffer);
         free(lb);
         lb = lb_next;
         lb_next = lb->next_buffer;
     }
 
+    free(lb->buffer);
     free(lb);
 }
 
+// Allocated line stream internal struct
 static inline ls_internal *ls_internal_init(const char *file_path, char *buffer, size_t buffer_size)
 {
     ls_internal *lsi = (ls_internal *)malloc(sizeof(ls_internal));
@@ -171,6 +175,11 @@ int fs_ls_read_line(line_stream *ls)
                 break;
             }
 
+            if (ls->line->lb->buffer_idx > ls->line->lb->buffer_size)
+            {
+                int j = 1;
+            }
+
             // Moves to next line buffer, allocates new buffer if all buffers are used
             if (ls->line->lb->buffer_size <= ls->line->lb->buffer_idx)
             {
@@ -178,7 +187,11 @@ int fs_ls_read_line(line_stream *ls)
                 {
                     ls->line->lb->next_buffer = ls->lsi->empty_lb_head;
                     ls->lsi->empty_lb_head = ls->lsi->empty_lb_head->next_buffer;
+                    if (ls->lsi->empty_lb_head == NULL)
+                        ls->lsi->empty_lb_tail = NULL;
+
                     ls->line->lb = ls->line->lb->next_buffer;
+                    ls->line->lb->next_buffer = NULL;
                 }
                 else
                 {
@@ -199,6 +212,27 @@ int fs_ls_read_line(line_stream *ls)
     ls->line->lb = (line_buffer *)ls->line->lb_head;
     ls->line->line_length = line_length;
     return 0;
+}
+
+// Changes file in line stream and resets line buffer
+int fs_ls_change_file(line_stream *ls, const char *file_path)
+{
+    if (fclose(ls->lsi->fp))
+    {
+        log_info("Error cloasing file: %s", ls->file_path);
+        return 1;
+    }
+
+    ls->file_path = file_path;
+    ls->lsi->fp = fopen(file_path, "r");
+    if (!ls->lsi->fp)
+    {
+        log_errno(0, file_path);
+        return 1;
+    }
+
+    ls->lsi->buffer_idx = 0;
+    fs_ls_line_reset(ls);
 }
 
 // Ends line stream and frees all memory used

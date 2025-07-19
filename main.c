@@ -59,6 +59,8 @@ int main(int argc, char *argv[])
     default:
         return start_file_search(&args);
     }
+
+    return 0;
 }
 
 #endif

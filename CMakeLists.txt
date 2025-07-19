@@ -14,6 +14,7 @@ set(SOURCES
     src/file_stream/line_stream.c
     src/log.c
     src/search/file_search.c
+    src/search/search_functions.c
 )
 
 # Header files

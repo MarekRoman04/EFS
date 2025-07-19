@@ -106,6 +106,7 @@ struct line_data
 
 line_stream *fs_ls_init(const char *file_path, char *buffer, size_t buffer_size);
 int fs_ls_read_line(line_stream *ls);
+int fs_ls_change_file(line_stream *ls, const char *file_path);
 int fs_ls_end(line_stream *ls);
 
 // Resets line data buffer in line stream
@@ -117,6 +118,8 @@ static inline void fs_ls_line_reset(line_stream *ls)
     // Moves unused buffers to ls_internal empty buffers
     if (ls->line->lb->next_buffer)
     {
+        ls->line->lb->next_buffer->buffer_idx = 0;
+
         if (ls->lsi->empty_lb_tail)
             ls->lsi->empty_lb_tail->next_buffer = ls->line->lb->next_buffer;
         else
@@ -138,7 +141,7 @@ static inline void fs_ls_line_reset(line_stream *ls)
 // Checks if there is next line in line stream
 static inline int fs_ls_has_line(line_stream *ls)
 {
-    if (ls->lsi->read)
+    if (ls->lsi->buffer_idx < ls->lsi->read)
         return 0;
 
     if ((ls->lsi->read = fs_read(ls->lsi->buffer, ls->lsi->buffer_size, ls->lsi->fp, ls->file_path)))

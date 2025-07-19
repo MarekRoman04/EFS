@@ -3,14 +3,8 @@
 static inline size_t bmh_search(const bmh_table *table, const char *pattern, unsigned char pattern_length,
                                 const char *data, size_t data_length, unsigned char start_idx, unsigned char *end_idx);
 bmh_table *bmh_pre_process(const char *pattern, unsigned char pattern_length);
-int bmh_count(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data,
-              size_t data_length, unsigned char start_idx, unsigned char *end_idx);
-int bmh_find(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data,
-             size_t data_length, unsigned char start_idx, unsigned char *end_idx);
-
-bmh_stream *bmhs_init(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data, size_t data_length);
-size_t bmhs_loc(bmh_stream *bmhs);
-void bmhs_end(bmh_stream *bmhs);
+int bmh_count(bmh_search_data *bmh_sd);
+int bmh_find(bmh_search_data *bmh_sd);
 
 // Returns table containing skippable characters for each char in pattern
 bmh_table *bmh_pre_process(const char *pattern, unsigned char pattern_length)
@@ -31,7 +25,7 @@ bmh_table *bmh_pre_process(const char *pattern, unsigned char pattern_length)
 
 /*
  * Returns location of pattern in given data, if not found returns BHM_NOT_FOUND,
- * and sets end_idx to number of matched characters
+ * and sets idx to number of matched characters
  */
 static inline size_t bmh_search(const bmh_table *table, const char *pattern, unsigned char pattern_length,
                                 const char *data, size_t data_length, unsigned char start_idx, unsigned char *end_idx)
@@ -66,89 +60,36 @@ static inline size_t bmh_search(const bmh_table *table, const char *pattern, uns
 }
 
 /*
- * Returns number of occurences of pattern in given data,
- * sets end_idx to last matched character index in pattern before end of data
+ * Returns number of occurences of pattern in data, starts search from idx-th character in pattern
+ * sets idx to last matched character index in pattern before end of data
  */
-int bmh_count(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data,
-              size_t data_length, unsigned char start_idx, unsigned char *end_idx)
+int bmh_count(bmh_search_data *bmh_sd)
 {
     int found = 0;
     size_t data_loc = 0;
 
-    while (data_loc < data_length)
+    while (data_loc < bmh_sd->data_length)
     {
         size_t loc;
-        if ((loc = bmh_search(table, pattern, pattern_length, data + data_loc, data_length - data_loc, start_idx, end_idx)) == BMH_NOT_FOUND)
+        if ((loc = bmh_search(bmh_sd->table, bmh_sd->pattern, bmh_sd->pattern_length, bmh_sd->data + data_loc,
+                              bmh_sd->data_length - data_loc, bmh_sd->idx, &(bmh_sd->idx))) == BMH_NOT_FOUND)
             return found;
 
         found++;
-        data_loc += loc + pattern_length;
+        data_loc += loc + bmh_sd->pattern_length;
     }
 
     return found;
 }
 
 /*
- * Returns 0 if data contains pattern,
+ * Returns 0 if data contains pattern, starts search from idx-th character in pattern
  * sets end_idx to last matched character index in pattern before end of data
  */
-int bmh_find(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data,
-             size_t data_length, unsigned char start_idx, unsigned char *end_idx)
+int bmh_find(bmh_search_data *bmh_sd)
 {
-    return bmh_search(table, pattern, pattern_length, data, data_length, start_idx, end_idx) == BMH_NOT_FOUND ? 1 : 0;
-}
-
-// Initializes bmh stream struct
-bmh_stream *bmhs_init(const bmh_table *table, const char *pattern, unsigned char pattern_length, const char *data, size_t data_length)
-{
-    bmh_stream *bmhs = (bmh_stream *)malloc(sizeof(bmh_stream));
-    if (!bmhs)
-    {
-        log_info("Error creating bmh_stream!");
-        return NULL;
-    }
-    bmhs->table = table;
-    bmhs->pattern = pattern;
-    bmhs->pattern_length = pattern_length;
-    bmhs->data = data;
-    bmhs->data_length = data_length;
-    bmhs->end_idx = 0;
-
-    return bmhs;
-}
-
-/*
- * Returns location of pattern in given data,
- * if not found returns BHM_NOT_FOUND and sets data to NULL,
- * if no data found to search in returns BMH_NOT_FOUND
- */
-size_t bmhs_loc(bmh_stream *bmhs)
-{
-    if (!bmhs->data)
-    {
-        log_info("No data to read from!");
-        return BMH_NOT_FOUND;
-    }
-
-    size_t loc = bmh_search(bmhs->table, bmhs->pattern, bmhs->pattern_length, bmhs->data,
-                            bmhs->data_length, bmhs->end_idx, &(bmhs->end_idx));
-
-    if (loc == BMH_NOT_FOUND)
-    {
-        bmhs->data = NULL;
-        bmhs->data_length = 0;
-    }
-    else
-    {
-        bmhs->data += (loc + bmhs->pattern_length);
-        bmhs->data_length -= (loc + bmhs->pattern_length);
-    }
-
-    return loc;
-}
-
-// Ends bmh stream
-void bmhs_end(bmh_stream *bmhs)
-{
-    free(bmhs);
+    return bmh_search(bmh_sd->table, bmh_sd->pattern, bmh_sd->pattern_length, bmh_sd->data,
+                      bmh_sd->data_length, bmh_sd->idx, &(bmh_sd->idx)) == BMH_NOT_FOUND
+               ? 1
+               : 0;
 }

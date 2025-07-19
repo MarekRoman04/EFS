@@ -3,44 +3,46 @@
 #include "file_stream.h"
 #include "search.h"
 
-static inline int quiet_search(search_data *sd, file_list *fl);
-static inline int list_search(search_data *sd, file_list *fl);
-static inline int count_search(search_data *sd, file_list *fl);
-static inline int line_number_search(search_data *sd, file_list *fl);
-static inline int print_search(search_data *sd, file_list *fl);
+static inline char_buffer buffer_alloc(cli_args *args);
+static inline FILE *set_out_path(cli_args *args);
+static inline search_data set_search_data(cli_args *args);
+
 int start_file_search(cli_args *args);
 
-int start_file_search(cli_args *args)
+// Allocates buffer from args or uses default size (4KB - 16KB)
+static inline char_buffer buffer_alloc(cli_args *args)
 {
-    int ret_val;
+    char_buffer buffer;
 
-    // Allocates buffer from args or uses default size (4096 - 16384)
-    char *buffer;
-    size_t buffer_size;
     if (args->buffer_size)
     {
-        buffer_size = args->buffer_size;
-        buffer = (char *)malloc(sizeof(char) * buffer_size);
-        if (!buffer)
-            log_error("Error allocating buffer!");
+        buffer.size = args->buffer_size;
+        buffer.data = (char *)malloc(sizeof(char) * buffer.size);
+        if (!buffer.data)
+            log_error("Error allocating buffer->data!");
     }
     else
     {
-        buffer_size = DEFAULT_BUFFER_SIZE;
-        while (buffer_size > MIN_BUFFER_SIZE)
+        buffer.size = DEFAULT_BUFFER_SIZE;
+        while (buffer.size > MIN_BUFFER_SIZE)
         {
-            buffer = (char *)malloc(sizeof(char) * buffer_size);
-            if (buffer)
+            buffer.data = (char *)malloc(sizeof(char) * buffer.size);
+            if (buffer.data)
                 break;
             else
-                buffer_size /= 2;
+                buffer.size /= 2;
         }
 
-        if (!buffer)
-            log_error("Error allocating buffer!");
+        if (!buffer.data)
+            log_error("Error allocating buffer->data!");
     }
 
-    // Sets output path from args or uses default value (stdout)
+    return buffer;
+}
+
+// Sets output path from args or uses default value (stdout)
+static inline FILE *set_out_path(cli_args *args)
+{
     FILE *out_p;
     if (args->out_path)
     {
@@ -55,17 +57,39 @@ int start_file_search(cli_args *args)
     else
         out_p = DEFAULT_OUT_PATH;
 
-    file_list fl = list_files(args);
+    return out_p;
+}
+
+// Sets search data for buffered search
+static inline search_data set_search_data(cli_args *args)
+{
     search_data sd = {
         .pattern = args->pattern,
         .pattern_length = strlen(args->pattern),
-        .buffer = buffer,
-        .buffer_size = buffer_size,
+        .buffer = buffer_alloc(args),
         .flags = args->flags,
-        .out_p = out_p};
+        .out_p = set_out_path(args)};
     sd.table = bmh_pre_process(sd.pattern, (unsigned char)sd.pattern_length);
     if (!sd.table)
         log_error("Error creating bmh_table!");
+
+    return sd;
+}
+
+static inline void free_search_data(search_data sd)
+{
+    if (sd.out_p != stdout && sd.out_p != stderr)
+        fclose(sd.out_p);
+
+    free(sd.table);
+    free(sd.buffer.data);
+}
+
+int start_file_search(cli_args *args)
+{
+    int ret_val;
+    search_data sd = set_search_data(args);
+    file_list fl = list_files(args);
 
     switch (args->flags)
     {
@@ -86,142 +110,6 @@ int start_file_search(cli_args *args)
         break;
     }
 
-    free(sd.table);
-    free(buffer);
-    return ret_val;
-}
-
-static inline int quiet_search(search_data *sd, file_list *fl)
-{
-    size_t read;
-    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
-    if (!fs)
-        log_error("Error creating file_stream!");
-
-    do
-    {
-        while (fs->current_file && fs_open_file(fs, "r"))
-            fs_skip_file(fs);
-
-        if (!fs->current_file)
-            break;
-
-        unsigned char end_idx = 0;
-        while ((read = fs_read_file(fs, sd->buffer, sd->buffer_size)))
-        {
-            if (!bmh_find(sd->table, sd->pattern, sd->pattern_length, sd->buffer, read, end_idx, &end_idx))
-            {
-                fs_end(fs);
-                return 0;
-            }
-        }
-    } while (fs_has_file(fs));
-
-    fs_end(fs);
-    return 1;
-}
-
-static inline int list_search(search_data *sd, file_list *fl)
-{
-    int ret_val = 1;
-    size_t read;
-    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
-    if (!fs)
-        log_error("Error creating file_stream!");
-
-    do
-    {
-        while (fs->current_file && fs_open_file(fs, "r"))
-            fs_skip_file(fs);
-
-        if (!fs->current_file)
-            break;
-
-        unsigned char end_idx = 0;
-        while ((read = fs_read_file(fs, sd->buffer, sd->buffer_size)))
-        {
-            if (!bmh_find(sd->table, sd->pattern, sd->pattern_length, sd->buffer, read, end_idx, &end_idx))
-            {
-                ret_val = 0;
-                fprintf(sd->out_p, "%s\n", *(fs->current_file));
-                break;
-            }
-        }
-    } while (fs_has_file(fs));
-
-    fs_end(fs);
-    return ret_val;
-}
-
-static inline int count_search(search_data *sd, file_list *fl)
-{
-    int ret_val = 1;
-    size_t read;
-    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
-    if (!fs)
-        log_error("Error creating file_stream!");
-
-    do
-    {
-        while (fs->current_file && fs_open_file(fs, "r"))
-            fs_skip_file(fs);
-
-        if (!fs->current_file)
-            break;
-
-        int found = 0;
-        unsigned char end_idx = 0;
-        while ((read = fs_read_file(fs, sd->buffer, sd->buffer_size)))
-        {
-            ret_val = 0;
-            found += bmh_count(sd->table, sd->pattern, sd->pattern_length, sd->buffer, read, end_idx, &end_idx);
-        }
-
-        fprintf(sd->out_p, "%s: %d\n", *(fs->current_file), found);
-    } while (fs_has_file(fs));
-
-    fs_end(fs);
-    return ret_val;
-}
-
-static inline int line_number_search(search_data *sd, file_list *fl)
-{
-}
-
-static inline int print_search(search_data *sd, file_list *fl)
-{
-    int ret_val = 1;
-    size_t read;
-    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
-    if (!fs)
-        log_error("Error creating file_stream!");
-
-    size_t loc = 0;
-    bmh_stream *bmhs = bmhs_init(sd->table, sd->pattern, sd->pattern_length, sd->buffer, sd->buffer_size);
-    if (!bmhs)
-        log_error("Error creating bmh_stream!");
-
-    do
-    {
-        while (fs->current_file && fs_open_file(fs, "r"))
-            fs_skip_file(fs);
-
-        if (!fs->current_file)
-            break;
-
-        while ((read = fs_read_file(fs, sd->buffer, sd->buffer_size)))
-        {
-            bmhs_add_data(bmhs, sd->buffer, sd->buffer_size);
-
-            while ((loc = bmhs_loc(bmhs)) != BMH_NOT_FOUND)
-            {
-                fprintf(sd->out_p, "%ld, ", loc);
-                ret_val = 0;
-            }
-        }
-
-    } while (fs_has_file(fs));
-
-    fs_end(fs);
+    free_search_data(sd);
     return ret_val;
 }
