@@ -5,6 +5,7 @@
 #include <string.h>
 #include "log.h"
 
+#define FLAGS_END 0
 #define FLAG_COUNT (1 << 0)          // -c or --count flag
 #define FLAG_DIRECTORY (1 << 1)      // -d or --directory flag
 #define FLAG_FILE (1 << 2)           // -f or --file flag

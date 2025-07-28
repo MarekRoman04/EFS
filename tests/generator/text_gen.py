@@ -20,7 +20,7 @@ DEFAULT_WORD_DICTIONARY_PATH = Path("/usr/share/dict/words")
 DEFAULT_LINE_LEN = 80
 DEFAULT_MIN_WORD_LEN = 3
 DEFAULT_FILE_COUNT = "5,3,1"
-SUPPORTED_MODES = ["all", "binary", "text-only", "random", "words"]
+SUPPORTED_MODES = ["all", "random", "words"]
 DEFAULT_MODE = "all"
 
 
@@ -87,11 +87,6 @@ class FileGenerator:
 
         return (s, m, l)
 
-    def _binary_generator(self, path: Path, size: int) -> None:
-        path = path.with_suffix(".dat")
-        with open(path, "wb") as f:
-            f.write(os.urandom(size))
-
     def _random_generator(self, path: Path, size: int) -> None:
         path = path.with_suffix(".txt")
         with open(path, "w") as f:
@@ -151,20 +146,10 @@ class FileGenerator:
             case "all":
                 self._file_generator(
                     {
-                        "binary": self._binary_generator,
                         "random": self._random_generator,
                         "words": self._word_generator,
                     }
                 )
-            case "text-only":
-                self._file_generator(
-                    {
-                        "random": self._random_generator,
-                        "words": self._word_generator,
-                    }
-                )
-            case "binary":
-                self._file_generator({"binary": self._binary_generator})
             case "random":
                 self._file_generator({"random": self._random_generator})
             case "words":
@@ -174,7 +159,7 @@ class FileGenerator:
 def arg_parser() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="File Generator",
-        description="Generates random binary, text and pattern test files",
+        description="Generates random character and text test files",
     )
     parser.add_argument(
         "--mode",
@@ -184,8 +169,6 @@ def arg_parser() -> argparse.Namespace:
         choices=SUPPORTED_MODES,
         help="""Text generation mode
                 all - Generates all file formats
-                binary - Generates binary files
-                text-only - Generates random character text and word text
                 random - Generates random text from utf-8 characters
                 word - Generates random text from word dictionary""",
     )
