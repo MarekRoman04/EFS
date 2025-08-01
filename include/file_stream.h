@@ -60,97 +60,33 @@ static inline void fs_skip_file(file_stream *fs)
 //---------------------------------
 
 #define DEFAULT_LINE_BUFFER_SIZE 256
+#define LINE_BUFFER_EXP_GROW_LIMIT 64 * 1024 * 1024 // 64 MB
+#define LINE_BUFFER_LINEAR_GROW_SIZE 64 * 1024 * 1024 // 64 MB
 
 typedef struct line_stream line_stream;
 typedef struct ls_internal ls_internal;
-typedef struct line_buffer line_buffer;
-typedef struct line_data line_data;
+
+struct ls_internal
+{
+    const char *file_path;
+    FILE *fp;
+    char *buffer;
+    size_t buffer_idx;
+    size_t buffer_read;
+    size_t buffer_size;
+    size_t line_buffer_size;
+};
 
 struct line_stream
 {
-    const char *file_path;
-    line_data *line;
-    ls_internal *lsi;
-};
-
-// Contains internal data used in line stream
-struct ls_internal
-{
-    FILE *fp;
-    // File data buffer
-    char *buffer;
-    size_t buffer_idx;
-    size_t buffer_size;
-    size_t read;
-    // Empty buffer link list
-    line_buffer *empty_lb_head;
-    line_buffer *empty_lb_tail;
-};
-
-// Line buffer linked list node
-struct line_buffer
-{
-    char *buffer;
-    size_t buffer_idx;
-    size_t buffer_size;
-    line_buffer *next_buffer;
-};
-
-// Contains line data in line buffer linked list
-struct line_data
-{
-    const line_buffer *lb_head;
-    line_buffer *lb;
+    struct ls_internal lsi;
+    char *line;
     size_t line_length;
 };
 
 line_stream *fs_ls_init(const char *file_path, char *buffer, size_t buffer_size);
-int fs_ls_read_line(line_stream *ls);
-int fs_ls_change_file(line_stream *ls, const char *file_path);
+int fs_ls_read(line_stream *ls);
+int fs_ls_file(line_stream *ls, const char *file_path);
 int fs_ls_end(line_stream *ls);
-
-// Resets line data buffer in line stream
-static inline void fs_ls_line_reset(line_stream *ls)
-{
-    ls->line->lb = (line_buffer *)ls->line->lb_head;
-    ls->line->lb->buffer_idx = 0;
-
-    // Moves unused buffers to ls_internal empty buffers
-    if (ls->line->lb->next_buffer)
-    {
-        ls->line->lb->next_buffer->buffer_idx = 0;
-
-        if (ls->lsi->empty_lb_tail)
-            ls->lsi->empty_lb_tail->next_buffer = ls->line->lb->next_buffer;
-        else
-        {
-            ls->lsi->empty_lb_head = ls->line->lb->next_buffer;
-            ls->lsi->empty_lb_tail = ls->line->lb->next_buffer;
-        }
-
-        while (ls->lsi->empty_lb_tail->next_buffer)
-        {
-            ls->lsi->empty_lb_tail = ls->lsi->empty_lb_tail->next_buffer;
-            ls->lsi->empty_lb_tail->buffer_idx = 0;
-        }
-
-        ls->line->lb->next_buffer = NULL;
-    }
-}
-
-// Checks if there is next line in line stream
-static inline int fs_ls_has_line(line_stream *ls)
-{
-    if (ls->lsi->buffer_idx < ls->lsi->read)
-        return 0;
-
-    if ((ls->lsi->read = fs_read(ls->lsi->buffer, ls->lsi->buffer_size, ls->lsi->fp, ls->file_path)))
-    {
-        ls->lsi->buffer_idx = 0;
-        return 0;
-    }
-
-    return 1;
-}
 
 #endif

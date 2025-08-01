@@ -146,42 +146,34 @@ int line_number_search(search_data *sd, file_list *fl)
     for (; i <= fl->file_count; i++)
     {
         size_t line = 0;
-        while (!fs_ls_has_line(ls))
+        int read_val;
+        while ((read_val = fs_ls_read(ls)) != -1)
         {
-            if (fs_ls_read_line(ls))
+            if (read_val)
             {
-                log_info("Error reading line in %s", ls->file_path);
+                log_info("Error reading line in %s", ls->lsi.file_path);
                 break;
             }
 
-            int found = 1;
             line++;
-            while (ls->line->lb && found)
-            {
-                bmh_sd.data = ls->line->lb->buffer;
-                bmh_sd.data_length = ls->line->lb->buffer_idx;
-                found = bmh_find(&bmh_sd);
-                ls->line->lb = ls->line->lb->next_buffer;
-            }
+            bmh_sd.data = ls->line;
+            bmh_sd.data_length = ls->line_length;
 
-            if (!found)
+            if (!bmh_find(&bmh_sd))
             {
                 ret_val = 0;
-                ls->line->lb = (line_buffer *)ls->line->lb_head;
-                fprintf(sd->out_p, "%s:%ld: ", ls->file_path, line);
-                while (ls->line->lb)
-                {
-                    fwrite(ls->line->lb->buffer, 1, ls->line->lb->buffer_idx, sd->out_p);
-                    ls->line->lb = ls->line->lb->next_buffer;
-                }
+                fprintf(sd->out_p, "%s:%ld:", ls->lsi.file_path, line);
+                fwrite(ls->line, 1, ls->line_length, sd->out_p);
             }
         }
 
-        if (i + 1 < fl->file_count)
-            fs_ls_change_file(ls, fl->file_paths[i + 1]);
+        if (i + 1 <= fl->file_count)
+            fs_ls_file(ls, fl->file_paths[i]);
     }
 
+    sd->buffer.data = NULL;
     fs_ls_end(ls);
+
     return ret_val;
 }
 
@@ -210,41 +202,32 @@ int print_search(search_data *sd, file_list *fl)
 
     for (; i <= fl->file_count; i++)
     {
-        int j = i;
-        while (!fs_ls_has_line(ls))
+        int read_val;
+        while ((read_val = fs_ls_read(ls)) != -1)
         {
-            if (fs_ls_read_line(ls))
+            if (read_val)
             {
-                log_info("Error reading line in %s", ls->file_path);
+                log_info("Error reading line in %s", ls->lsi.file_path);
                 break;
             }
 
-            int found = 1;
-            while (ls->line->lb && found)
-            {
-                bmh_sd.data = ls->line->lb->buffer;
-                bmh_sd.data_length = ls->line->lb->buffer_idx;
-                found = bmh_find(&bmh_sd);
-                ls->line->lb = ls->line->lb->next_buffer;
-            }
+            bmh_sd.data = ls->line;
+            bmh_sd.data_length = ls->line_length;
 
-            if (!found)
+            if (!bmh_find(&bmh_sd))
             {
                 ret_val = 0;
-                ls->line->lb = (line_buffer *)ls->line->lb_head;
-                fprintf(sd->out_p, "%s: ", ls->file_path);
-                while (ls->line->lb)
-                {
-                    fwrite(ls->line->lb->buffer, 1, ls->line->lb->buffer_idx, sd->out_p);
-                    ls->line->lb = ls->line->lb->next_buffer;
-                }
+                fprintf(sd->out_p, "%s:", ls->lsi.file_path);
+                fwrite(ls->line, 1, ls->line_length, sd->out_p);
             }
         }
 
         if (i + 1 <= fl->file_count)
-            fs_ls_change_file(ls, fl->file_paths[i]);
+            fs_ls_file(ls, fl->file_paths[i]);
     }
 
+    sd->buffer.data = NULL;
     fs_ls_end(ls);
+
     return ret_val;
 }
