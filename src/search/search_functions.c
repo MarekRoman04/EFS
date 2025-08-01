@@ -158,6 +158,7 @@ int line_number_search(search_data *sd, file_list *fl)
             line++;
             bmh_sd.data = ls->line;
             bmh_sd.data_length = ls->line_length;
+            bmh_sd.idx = 0;
 
             if (!bmh_find(&bmh_sd))
             {
@@ -213,6 +214,7 @@ int print_search(search_data *sd, file_list *fl)
 
             bmh_sd.data = ls->line;
             bmh_sd.data_length = ls->line_length;
+            bmh_sd.idx = 0;
 
             if (!bmh_find(&bmh_sd))
             {

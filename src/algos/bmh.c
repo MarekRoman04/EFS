@@ -25,7 +25,7 @@ bmh_table *bmh_pre_process(const char *pattern, unsigned char pattern_length)
 
 /*
  * Returns location of pattern in given data, if not found returns BHM_NOT_FOUND,
- * and sets idx to number of matched characters
+ * and sets idx to index of last matched character
  */
 static inline size_t bmh_search(const bmh_table *table, const char *pattern, unsigned char pattern_length,
                                 const char *data, size_t data_length, unsigned char start_idx, unsigned char *end_idx)
@@ -34,16 +34,16 @@ static inline size_t bmh_search(const bmh_table *table, const char *pattern, uns
         return BMH_NOT_FOUND;
 
     size_t loc = 0;
-    size_t j = 0;
+    unsigned char j = 0;
 
     while (loc <= data_length - pattern_length)
     {
         j = start_idx;
         start_idx = 0;
 
-        for (; j < pattern_length; j++)
+        for (unsigned char i = 0; j < pattern_length; i++, j++)
         {
-            if (data[loc + j] != pattern[j])
+            if (data[loc + i] != pattern[j])
                 break;
         }
         if (j == pattern_length)
@@ -55,7 +55,7 @@ static inline size_t bmh_search(const bmh_table *table, const char *pattern, uns
         loc += table[(unsigned char)data[loc + pattern_length - 1]];
     }
 
-    *end_idx = j;
+    *end_idx = j - 1;
     return BMH_NOT_FOUND;
 }
 
