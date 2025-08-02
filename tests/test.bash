@@ -14,16 +14,23 @@ run_tests()
 
     #File input tests
     for MODE in "${TEST_MODE[@]}"; do
+        echo "Starting: $MODE tests!"
         for SIZE in "${TEST_SIZE[@]}"; do
-            for FILE in "$TEST_FILES/$MODE"/$SIZE/*; do
-                echo "Checking: $FILE, patterns: $TEST_PATTERNS/$MODE"
+            COUNT=0
+            TOTAL=$(find "$TEST_FILES/$MODE/$SIZE" -type f | wc -l)
+            for FILE in "$TEST_FILES/$MODE/$SIZE"/*; do
                 [ -f "$FILE" ] || continue
+                ((COUNT++))
+
+                printf "\rChecking: %-60s [%d/%d]" "$FILE" "$COUNT" "$TOTAL"
+                
                 while IFS= read -r PATTERN; do
                     "$TEST_FUNCTION" "$PATTERN" "$FILE"
                 done < "$TEST_PATTERNS"
             done
+            echo -e "\n$SIZE tests passed!"
         done
-        echo "$MODE file test finished!"
+        echo "$MODE tests passed!"
     done
 
     #Expansion tests
@@ -42,43 +49,32 @@ run_tests()
 string_search_test()
 {
     mkdir -p ./temp
-    # EFS_RESULT=...
-    # GREP_RESULT="./temp/test_str_temp.txt"
-    # grep -F "$1" "$2" > "$GREP_RESULT"
 
-    # if ! diff -q "$EFS_RESULT" "$GREP_RESULT" >/dev/null; then
-    #     echo "Error invalid line match in $FILE" >&2
-    #     diff "$EFS_RESULT" "$GREP_RESULT" >&2
-    #     exit 1
-    # fi
+    #EFS test
+    EFS_RESULT="./temp/efs_print.txt"
+    GREP_RESULT="./temp/grep_print.txt"
+    ./efs -n -- "$1" "$2" > "$EFS_RESULT"
+    grep -nFH -- "$1" "$2" > "$GREP_RESULT"
 
-    # EFS_COUNT=...
-    # GREP_COUNT=$(grep -Fc "$1" "$2")
-    # echo $GREP_COUNT
-
-    # if [ $EFS_COUNT != $GREP_COUNT ]; then
-    #     echo "Error invalid pattern count in $2" >&2
-    #     echo "Grep: $GREP_COUNT" >&2
-    #     echo "EFS: $EFS_COUNT" >&2
-    #     exit 1
-    # else
-    #     echo "$2: $GREP_COUNT"
-    # fi
+    if ! diff -q "$EFS_RESULT" "$GREP_RESULT" >/dev/null; then
+        echo "Error invalid line match $1 in $2" >&2
+        diff "$EFS_RESULT" "$GREP_RESULT" >&2
+        exit 1
+    fi
 
     #EFS -c flag test
-    EFS_FULL_COUNT_OUTPUT=$(./efs -c -- "$1" "$2")
-    EFS_FULL_COUNT="${EFS_FULL_COUNT_OUTPUT#*: }"
-    GREP_FULL_COUNT=$(grep -Fo -- "$1" "$2" | wc -l)
+    EFS_COUNT=$(./efs -c -- "$1" "$2")
+    GREP_COUNT=$(grep -FHc -- "$1" "$2")
 
-    if [ $EFS_FULL_COUNT != $GREP_FULL_COUNT ]; then
+    if [ $EFS_COUNT != $GREP_COUNT ]; then
         echo "Error invalid full count $1 in $2" >&2
-        echo "Grep | wc: $GREP_FULL_COUNT" >&2
-        echo "EFS: $EFS_FULL_COUNT" >&2
+        echo "Grep: $GREP_COUNT" >&2
+        echo "EFS: $EFS_COUNT" >&2
     fi
 
     # EFS -l flag test
-    EFS_RESULT="./temp/test_str_list.txt"
-    GREP_RESULT="./temp/test_str_list.txt"
+    EFS_RESULT="./temp/efs_list.txt"
+    GREP_RESULT="./temp/grep_list.txt"
     ./efs -l -- "$1" "$2" > "$EFS_RESULT"
     grep -Fl -- "$1" "$2" > "$GREP_RESULT"
 
@@ -121,16 +117,6 @@ string_search_test()
     #     echo "Grep: $GREP_WORD_COUNT" >&2
     #     echo "EFS: $EFS_WORD_COUNT" >&2
     #     exit 1
-    # fi
-
-    # EFS_WORD_FULL_COUNT=...
-    # GREP_WORD_FULL_COUNT=$(grep -Fow "$1" "$2" | wc -l)
-    # echo $GREP_WORD_FULL_COUNT
-
-    # if [ $EFS_WORD_FULL_COUNT != $GREP_WORD_FULL_COUNT ]; then
-    #     echo "Error invalid full pattern count in $2" >&2
-    #     echo "Grep | wc: $GREP_WORD_FULL_COUNT" >&2
-    #     echo "EFS: $EFS_WORD_FULL_COUNT" >&2
     # fi
 }
 

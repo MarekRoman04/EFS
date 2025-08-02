@@ -91,32 +91,58 @@ int list_search(search_data *sd, file_list *fl)
 int count_search(search_data *sd, file_list *fl)
 {
     int ret_val = 1;
-    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
-    if (!fs)
-        log_error("Error creating file_stream!");
-
-    bmh_search_data bmh_sd = set_bmh_search(sd);
-
-    do
+    size_t count = 0;
+    size_t i = 0;
+    line_stream *ls = NULL;
+    while (!ls && i < fl->file_count)
     {
-        while (fs->current_file && fs_open_file(fs, "r"))
-            fs_skip_file(fs);
+        ls = fs_ls_init(fl->file_paths[i], sd->buffer.data, sd->buffer.size);
+        if (!ls)
+            log_info("Ignoring: %s", fl->file_paths[i]);
+        i++;
+    }
 
-        if (!fs->current_file)
-            break;
+    bmh_search_data bmh_sd = {
+        .table = sd->table,
+        .pattern = sd->pattern,
+        .pattern_length = sd->pattern_length,
+        .idx = 0,
+    };
 
-        int found = 0;
-        unsigned char end_idx = 0;
-        while ((bmh_sd.data_length = fs_read_file(fs, sd->buffer.data, sd->buffer.size)))
-            found += bmh_count(&bmh_sd);
+    if (!ls)
+        log_error("Error creating line stream!");
 
-        if (found)
-            ret_val = 0;
+    for (; i <= fl->file_count; i++)
+    {
+        int read_val;
+        while ((read_val = fs_ls_read(ls)) != -1)
+        {
+            if (read_val)
+            {
+                log_info("Error reading line in %s", ls->lsi.file_path);
+                break;
+            }
 
-        fprintf(sd->out_p, "%s: %d\n", *(fs->current_file), found);
-    } while (fs_has_file(fs));
+            bmh_sd.data = ls->line;
+            bmh_sd.data_length = ls->line_length;
+            bmh_sd.idx = 0;
 
-    fs_end(fs);
+            if (!bmh_find(&bmh_sd))
+            {
+                ret_val = 0;
+                count++;
+            }
+        }
+
+        fprintf(sd->out_p, "%s:%ld\n", ls->lsi.file_path, count);
+
+        if (i + 1 <= fl->file_count)
+            fs_ls_file(ls, fl->file_paths[i]);
+    }
+
+    sd->buffer.data = NULL;
+    fs_ls_end(ls);
+
     return ret_val;
 }
 
