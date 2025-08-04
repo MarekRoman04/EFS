@@ -19,7 +19,7 @@
 #define FLAG_SINGLE_THREAD (1 << 10) // --signle-thread flag
 
 #define FLAG_EMPTY 0
-#define FLAG_SET(flags, bit) (flags & bit)
+#define FLAG_SET(flags, bit) (!!(flags & bit))
 
 typedef struct arg_parser
 {

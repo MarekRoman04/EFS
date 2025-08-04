@@ -25,7 +25,7 @@ const char *HELP_MESSAGE =
     "  -l, --list            List only names of matching files\n"
     "  -q, --quiet           Suppress normal output\n"
     "  -r, --recursive       Recursively search directories\n"
-    "  -v, --invert-match    Select non-matching lines\n"
+    "  -v, --invert-match    Select non-matching lines (ignored in combination with -q or -l)\n"
     "  -w, --word            Match only whole words\n"
     "      --output=FILE     Write output to FILE instead of standard output\n"
     "      --buffer-size=N   Set internal buffer size in bytes (default: 8192)\n"

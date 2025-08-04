@@ -4,12 +4,16 @@
 #include "search.h"
 
 static inline bmh_search_data set_bmh_search(search_data *sd);
+static inline bmh_search_data set_bmh_search_line(search_data *sd);
+static inline line_stream *ls_init(file_list *fl, search_data *sd, size_t *i);
+static inline int read_line(line_stream *ls, bmh_search_data *bmh_sd);
 int quiet_search(search_data *sd, file_list *fl);
 int list_search(search_data *sd, file_list *fl);
 int count_search(search_data *sd, file_list *fl);
 int line_number_search(search_data *sd, file_list *fl);
 int print_search(search_data *sd, file_list *fl);
 
+// Initializes bmh_sd for buffered search
 static inline bmh_search_data set_bmh_search(search_data *sd)
 {
     bmh_search_data bmh_sd = {
@@ -22,6 +26,56 @@ static inline bmh_search_data set_bmh_search(search_data *sd)
     };
 
     return bmh_sd;
+}
+
+// Initializes bmh_sd for line search
+static inline bmh_search_data set_bmh_search_line(search_data *sd)
+{
+    bmh_search_data bmh_sd = {
+        .table = sd->table,
+        .pattern = sd->pattern,
+        .pattern_length = sd->pattern_length,
+        .idx = 0,
+    };
+
+    return bmh_sd;
+}
+
+// Initializes line stream
+static inline line_stream *ls_init(file_list *fl, search_data *sd, size_t *i)
+{
+    line_stream *ls = NULL;
+    while (!ls && *i < fl->file_count)
+    {
+        ls = fs_ls_init(fl->file_paths[*i], sd->buffer.data, sd->buffer.size);
+        if (!ls)
+            log_info("Ignoring: %s", fl->file_paths[*i]);
+        (*i)++;
+    }
+
+    if (!ls)
+        log_error("Error creating line stream!");
+
+    return ls;
+}
+
+// Reads line from line stream
+static inline int read_line(line_stream *ls, bmh_search_data *bmh_sd)
+{
+    int read_val = fs_ls_read(ls);
+    if (read_val)
+    {
+        if (read_val == -1)
+            return read_val;
+        else
+            log_info("Error reading line in %s", ls->lsi.file_path);
+    }
+
+    bmh_sd->data = ls->line;
+    bmh_sd->data_length = ls->line_length;
+    bmh_sd->idx = 0;
+
+    return read_val;
 }
 
 int quiet_search(search_data *sd, file_list *fl)
@@ -91,43 +145,16 @@ int list_search(search_data *sd, file_list *fl)
 int count_search(search_data *sd, file_list *fl)
 {
     int ret_val = 1;
-    size_t count = 0;
     size_t i = 0;
-    line_stream *ls = NULL;
-    while (!ls && i < fl->file_count)
-    {
-        ls = fs_ls_init(fl->file_paths[i], sd->buffer.data, sd->buffer.size);
-        if (!ls)
-            log_info("Ignoring: %s", fl->file_paths[i]);
-        i++;
-    }
-
-    bmh_search_data bmh_sd = {
-        .table = sd->table,
-        .pattern = sd->pattern,
-        .pattern_length = sd->pattern_length,
-        .idx = 0,
-    };
-
-    if (!ls)
-        log_error("Error creating line stream!");
+    line_stream *ls = ls_init(fl, sd, &i);
+    bmh_search_data bmh_sd = set_bmh_search(sd);
 
     for (; i <= fl->file_count; i++)
     {
-        int read_val;
-        while ((read_val = fs_ls_read(ls)) != -1)
+        size_t count = 0;
+        while (read_line(ls, &bmh_sd) != -1)
         {
-            if (read_val)
-            {
-                log_info("Error reading line in %s", ls->lsi.file_path);
-                break;
-            }
-
-            bmh_sd.data = ls->line;
-            bmh_sd.data_length = ls->line_length;
-            bmh_sd.idx = 0;
-
-            if (!bmh_find(&bmh_sd))
+            if ((!bmh_find(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
             {
                 ret_val = 0;
                 count++;
@@ -150,43 +177,18 @@ int line_number_search(search_data *sd, file_list *fl)
 {
     int ret_val = 1;
     size_t i = 0;
-    line_stream *ls = NULL;
-    while (!ls && i < fl->file_count)
-    {
-        ls = fs_ls_init(fl->file_paths[i], sd->buffer.data, sd->buffer.size);
-        if (!ls)
-            log_info("Ignoring: %s", fl->file_paths[i]);
-        i++;
-    }
-
-    bmh_search_data bmh_sd = {
-        .table = sd->table,
-        .pattern = sd->pattern,
-        .pattern_length = sd->pattern_length,
-        .idx = 0,
-    };
-
-    if (!ls)
-        log_error("Error creating line stream!");
+    line_stream *ls = ls_init(fl, sd, &i);
+    bmh_search_data bmh_sd = set_bmh_search(sd);
 
     for (; i <= fl->file_count; i++)
     {
         size_t line = 0;
         int read_val;
-        while ((read_val = fs_ls_read(ls)) != -1)
+        while (read_line(ls, &bmh_sd) != -1)
         {
-            if (read_val)
-            {
-                log_info("Error reading line in %s", ls->lsi.file_path);
-                break;
-            }
-
             line++;
-            bmh_sd.data = ls->line;
-            bmh_sd.data_length = ls->line_length;
-            bmh_sd.idx = 0;
 
-            if (!bmh_find(&bmh_sd))
+            if ((!bmh_find(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
             {
                 ret_val = 0;
                 fprintf(sd->out_p, "%s:%ld:", ls->lsi.file_path, line);
@@ -208,41 +210,15 @@ int print_search(search_data *sd, file_list *fl)
 {
     int ret_val = 1;
     size_t i = 0;
-    line_stream *ls = NULL;
-    while (!ls && i < fl->file_count)
-    {
-        ls = fs_ls_init(fl->file_paths[i], sd->buffer.data, sd->buffer.size);
-        if (!ls)
-            log_info("Ignoring: %s", fl->file_paths[i]);
-        i++;
-    }
-
-    bmh_search_data bmh_sd = {
-        .table = sd->table,
-        .pattern = sd->pattern,
-        .pattern_length = sd->pattern_length,
-        .idx = 0,
-    };
-
-    if (!ls)
-        log_error("Error creating line stream!");
+    line_stream *ls = ls_init(fl, sd, &i);
+    bmh_search_data bmh_sd = set_bmh_search(sd);
 
     for (; i <= fl->file_count; i++)
     {
         int read_val;
-        while ((read_val = fs_ls_read(ls)) != -1)
+        while (read_line(ls, &bmh_sd) != -1)
         {
-            if (read_val)
-            {
-                log_info("Error reading line in %s", ls->lsi.file_path);
-                break;
-            }
-
-            bmh_sd.data = ls->line;
-            bmh_sd.data_length = ls->line_length;
-            bmh_sd.idx = 0;
-
-            if (!bmh_find(&bmh_sd))
+            if ((!bmh_find(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
             {
                 ret_val = 0;
                 fprintf(sd->out_p, "%s:", ls->lsi.file_path);

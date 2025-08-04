@@ -67,6 +67,7 @@ line_stream *fs_ls_init(const char *file_path, char *buffer, size_t buffer_size)
 /*
  * Reads line from file into line_stream line, overwrites previous read,
  * sets line_length to read line length including \n,
+ * returns 0 on successful read
  * returns -1 if no data to read from
  * retruns 1 if line is longer than available memory,
  * contains part of the line that was successfully read
@@ -85,7 +86,7 @@ int fs_ls_read(line_stream *ls)
             ls->lsi.buffer_idx = 0;
         }
 
-        if (!ls->lsi.buffer_read && !ls->line_length)
+        if (!ls->lsi.buffer_read)
         {
             if (ls->line_length)
                 line_found = 1;

@@ -91,24 +91,16 @@ int start_file_search(cli_args *args)
     search_data sd = set_search_data(args);
     file_list fl = list_files(args);
 
-    switch (args->flags)
-    {
-    case FLAG_QUIET:
+    if (FLAG_SET(sd.flags, FLAG_QUIET))
         ret_val = quiet_search(&sd, &fl);
-        break;
-    case FLAG_LIST:
+    else if (FLAG_SET(sd.flags, FLAG_LIST))
         ret_val = list_search(&sd, &fl);
-        break;
-    case FLAG_COUNT:
+    else if (FLAG_SET(sd.flags, FLAG_COUNT))
         ret_val = count_search(&sd, &fl);
-        break;
-    case FLAG_LINE_NUMBER:
+    else if (FLAG_SET(sd.flags, FLAG_LINE_NUMBER))
         ret_val = line_number_search(&sd, &fl);
-        break;
-    default:
+    else
         ret_val = print_search(&sd, &fl);
-        break;
-    }
 
     free_search_data(sd);
     return ret_val;
