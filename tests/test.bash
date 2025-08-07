@@ -2,138 +2,216 @@
 
 # --- CONFIG ---
 DEFAULT_TEST_PATH="./test_files"
-DEFAULT_PATTERNS_PATH="./patterns.txt"
-TEST_MODE=("random" "words")
-TEST_SIZE=("small" "medium" "large")
+DEFAULT_PATTERN_PATH="./patterns.txt"
+DEFAULT_TEST_MODE=("random" "words")
+DEFAULT_TEST_SIZE=("small" "medium" "large")
+DEFAULT_FILE_INPUT_MODE=("single" "multiple")
+DEFAULT_OUTPUT_PATH="./temp"
+FLAGS="qlcnviw"
+INVALID_COMBINATIONS=("-qv" "-lv")
+
+help()
+{
+    echo "Bash script comparing EFS and grep results on given patterns"
+    echo "Supports test file and pattern generation using python scripts"
+    echo "Usage: $0 -[OPTION..] -- [EFS_FLAG_STRING...]"
+    echo "Options:"
+    echo "-a, --all             Runs all tests"
+    echo "-h, --help            Display help message"
+    echo "-o, --output          Sets ouput path on test failure"
+    echo "-f, --files           Sets test file path"
+    echo "-p, --pattern         Sets test pattern file path"
+    echo "-m, --mode            Sets test mode "random,words", default: all modes"
+    echo "-i, --input-mode      Sets input mode for files (single, multiple), default: all modes"
+    echo "-s, --size            Sets file size to test on "small,mediun,large", default: all sizes"
+    echo "    --no-print        Disables test run without flags"
+    echo "EFS flag string:"
+    echo "Sets flags used in efs tests, default: no flag"
+    echo "When used with -a, --all flag string may contain only -v, -i, -w,"
+    echo "only first flag string is used, other are ignored!,"
+    echo "-q and -l tests run only with -i, -w flags"
+}
 
 run_tests()
 {
-    TEST_FUNCTION=$1
-    TEST_PATTERNS=${2:-$DEFAULT_PATTERNS_PATH}
-    TEST_FILES=${3:-$DEFAULT_TEST_PATH}
+    FLAGS=$1
 
-    #File input tests
-    for MODE in "${TEST_MODE[@]}"; do
-        echo "Starting: $MODE tests!"
-        for SIZE in "${TEST_SIZE[@]}"; do
-            COUNT=0
-            TOTAL=$(find "$TEST_FILES/$MODE/$SIZE" -type f | wc -l)
-            for FILE in "$TEST_FILES/$MODE/$SIZE"/*; do
-                [ -f "$FILE" ] || continue
-                ((COUNT++))
-
-                printf "\rChecking: %-60s [%d/%d]" "$FILE" "$COUNT" "$TOTAL"
-                
-                while IFS= read -r PATTERN; do
-                    "$TEST_FUNCTION" "$PATTERN" "$FILE"
-                done < "$TEST_PATTERNS"
-            done
-            echo -e "\n$SIZE tests passed!"
-        done
-        echo "$MODE tests passed!"
-    done
-
-    #Expansion tests
-    for MODE in "${TEST_MODE[@]}"; do
-        for SIZE in "${TEST_SIZE[@]}"; do
-            FILES="$TEST_FILES/$MODE/$SIZE/*"
-            echo "Checking: $MODE/$SIZE/*"
-            while IFS= read -r PATTERN; do
-                "$TEST_FUNCTION" "$PATTERN" $FILES
-            done < "$TEST_PATTERNS"
-        done
-        echo "$MODE test finished!"
+    for FILE_MODE in ${FILE_INPUT_MODE[@]}; do
+        case "$FILE_MODE" in
+            single) single_file_tests $FLAGS ;;
+            multiple) multiple_file_tests $FLAGS ;;
+            *) echo "Invalid file mode: $FILE_MODE" ;;
+        esac
     done
 }
+
+single_file_tests()
+{
+    FLAGS=$1
+
+    for MODE in "${TEST_MODE[@]}"; do
+        for SIZE in "${TEST_SIZE[@]}"; do
+            COUNT=0
+            TOTAL=$(find "$TEST_PATH/$MODE/$SIZE" -type f | wc -l)
+            for FILE in "$TEST_PATH/$MODE/$SIZE"/*; do
+                [ -f "$FILE" ] || continue
+                ((COUNT++))
+                printf "\rChecking: %-50s [%d/%d]" "$FILE" "$COUNT" "$TOTAL"
+                while IFS= read -r PATTERN; do
+                    string_search_test "$FLAGS" "$PATTERN" "$FILE"
+                done < "$PATTERN_PATH"
+            done
+            echo "Single file tests: $FLAGS passed!"
+        done
+    done
+}
+
+multiple_file_tests()
+{
+    FLAGS=$1
+
+    for MODE in "${TEST_MODE[@]}"; do
+        for SIZE in "${TEST_SIZE[@]}"; do
+            FILES=("$TEST_PATH/$MODE/$SIZE"/*)
+            [ -e "${FILES[0]}" ] || continue
+            printf "Checking: %-55s " "$MODE/$SIZE/*"
+            while IFS= read -r PATTERN; do
+                string_search_test "$FLAGS" "$PATTERN" "${FILES[@]}"
+            done < "$PATTERN_PATH"
+            echo "Multiple file tests: $FLAGS passed!"
+        done
+    done
+}
+
 
 string_search_test()
 {
-    mkdir -p ./temp
+    FLAGS="$1"
+    shift
+    PATTERN="$1"
+    shift
+    FILES=("$@")
 
-    #EFS test
-    EFS_RESULT="./temp/efs_print.txt"
-    GREP_RESULT="./temp/grep_print.txt"
-    ./efs -n -- "$1" "$2" > "$EFS_RESULT"
-    grep -nFH -- "$1" "$2" > "$GREP_RESULT"
-
-    if ! diff -q "$EFS_RESULT" "$GREP_RESULT" >/dev/null; then
-        echo "Error invalid line match $1 in $2" >&2
-        diff "$EFS_RESULT" "$GREP_RESULT" >&2
-        exit 1
-    fi
-
-    #EFS -c flag test
-    EFS_COUNT=$(./efs -c -- "$1" "$2")
-    GREP_COUNT=$(grep -FHc -- "$1" "$2")
-
-    if [ $EFS_COUNT != $GREP_COUNT ]; then
-        echo "Error invalid full count $1 in $2" >&2
-        echo "Grep: $GREP_COUNT" >&2
-        echo "EFS: $EFS_COUNT" >&2
-    fi
-
-    # EFS -l flag test
-    EFS_RESULT="./temp/efs_list.txt"
-    GREP_RESULT="./temp/grep_list.txt"
-    ./efs -l -- "$1" "$2" > "$EFS_RESULT"
-    grep -Fl -- "$1" "$2" > "$GREP_RESULT"
+    EFS_RESULT="/dev/shm/efs${FLAGS}_${TMP_ID}.txt"
+    GREP_RESULT="/dev/shm/grep${FLAGS}_${TMP_ID}.txt"
+    ./efs $FLAGS -- "$PATTERN" ${FILES[@]} > "$EFS_RESULT"
+    grep $FLAGS -FH -- "$PATTERN" ${FILES[@]} > "$GREP_RESULT"
 
     if ! diff -q "$EFS_RESULT" "$GREP_RESULT" >/dev/null; then
-        echo "Error invalid list match in $1" >&2
+        echo "Error invalid results with flags: ${FLAGS}, pattern: '$PATTERN' in file: ${FILES[*]}" >&2
         diff "$EFS_RESULT" "$GREP_RESULT" >&2
+        echo "Program results saved to ouput location"
+        cp $EFS_RESULT ./efs.txt
+        cp $GREP_RESULT ./grep.txt
         exit 1
     fi
-
-    #EFS -q flag test
-    ./efs -q -- "$1" "$2"
-    EFS_STATUS=$?
-
-    grep -Fq -- "$1" "$2"
-    GREP_STATUS=$?
-
-    if [ $EFS_STATUS -ne $GREP_STATUS ]; then
-        echo "Invalid quiet return $1, in $2" >&2
-        exit 1
-    fi
-
-    # EFS_WORD_RESULT=...
-    # GREP_WORD_RESULT="./temp/test_w_str_temp.txt"
-    # grep -Fw "$1" "$2" > "$GREP_WORD_RESULT"
-
-    # RESULT_DIFF=$(diff $EFS_WORD_RESULT $GREP_WORD_RESULT)
-
-    # if [ $RESULT_DIFF ]; then
-    #     echo "Error invalid lines matched in $2" >&2
-    #     echo $RESULT_DIFF >&2
-    #     exit 1
-    # fi
-
-    # EFS_WORD_COUNT=...
-    # GREP_WORD_COUNT=$(grep -Fcw "$1" "$2")
-    # echo $GREP_WORD_COUNT
-
-    # if [ $EFS_WORD_COUNT != $GREP_WORD_COUNT ]; then
-    #     echo "Error invalid pattern count in $2" >&2
-    #     echo "Grep: $GREP_WORD_COUNT" >&2
-    #     echo "EFS: $EFS_WORD_COUNT" >&2
-    #     exit 1
-    # fi
 }
 
-case "$1" in
-    all)
-        echo "Running all tests!"
-        ;;
-    string)
-        echo "Running string search tests!"
-        run_tests "string_search_test" $2 $3
-        ;;
-    regex)
-        echo "Running regex matching tests!"
-        ;;
-    *)
-        echo "Invalid arg given! Try --help for more information"
-        ;;
-esac
+run_all_tests()
+{
+    CLI_FLAGS="${1:1}"
 
+    if [[ $CLI_FLAGS != *v* ]]; then
+        #Quiet search test
+        run_tests -q$CLI_FLAGS
+        #List search test
+        run_tests -l$CLI_FLAGS
+    fi
+    #Count search test
+    run_tests -c$CLI_FLAGS
+    #Line number search test
+    run_tests -n$CLI_FLAGS
+    #Print search test
+    run_tests
 
+    exit 0
+}
+
+RUN_ALL=false
+PRINT=true
+OUTPUT_PATH=""
+TEST_PATH=""
+PATTERN_PATH=""
+TEST_MODE=""
+FILE_INPUT_MODE=""
+TEST_SIZE=""
+EFS_FLAGS=()
+
+#Parse options
+TEMP=$(getopt -o aho:f:p:m:i:s: --long all,help,output:,files:,pattern:,mode:,input-mode:,size:,no-print -n "$0" -- "$@")
+if [ $? != 0 ]; then
+    echo "Error parsing arguments" >&2
+    exit 1
+fi
+eval set -- "$TEMP"
+
+#Process options
+while true; do
+    case "$1" in
+        -a|--all) RUN_ALL=true; shift ;;
+        -h|--help) help; exit 0 ;;
+        -o|--output) OUTPUT_PATH="$2"; shift 2 ;;
+        -f|--files) TEST_PATH="$2"; shift 2 ;;
+        -p|--pattern) PATTERN_PATH="$2"; shift 2 ;;
+        -m|--mode) TEST_MODE="$2"; shift 2 ;;
+        -i|--input-mode) FILE_INPUT_MODE="$2"; shift 2 ;;
+        -s|--size) TEST_SIZE="$2"; shift 2 ;;
+        --no-print) PRINT=false; shift ;;
+        --) shift; break ;;  # end of options, start of EFS flags
+        *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+done
+
+EFS_FLAG_STRINGS=("$@")
+
+#Default values if no value given
+: "${TEST_PATH:=$DEFAULT_TEST_PATH}"
+: "${PATTERN_PATH:=$DEFAULT_PATTERN_PATH}"
+: "${OUTPUT_PATH:=$DEFAULT_OUTPUT_PATH}"
+
+#Default values for arrays, or values for all option
+if [ -z "$TEST_MODE" ]; then
+    TEST_MODE=("${DEFAULT_TEST_MODE[@]}")
+else
+    IFS=',' read -ra TEST_MODE <<< "$TEST_MODE"
+fi
+
+if [ -z "$FILE_INPUT_MODE" ]; then
+    FILE_INPUT_MODE=("${DEFAULT_FILE_INPUT_MODE[@]}")
+else
+    IFS=',' read -ra FILE_INPUT_MODE <<< "$FILE_INPUT_MODE"
+fi
+
+if [ -z "$TEST_SIZE" ]; then
+    TEST_SIZE=("${DEFAULT_TEST_SIZE[@]}")
+else
+    IFS=',' read -ra TEST_SIZE <<< "$TEST_SIZE"
+fi
+
+#Runs EFS tests
+if $RUN_ALL; then
+    run_all_tests ${EFS_FLAG_STRINGS[0]}
+fi
+
+if $PRINT; then
+    run_tests    
+fi
+
+#Runs tests for given valid flag combinations
+for FLAG in "${EFS_FLAG_STRINGS[@]}"; do
+    INVALID=false
+    for INVALID_FLAG in "${INVALID_COMBINATIONS[@]}"; do
+        if [[ "$FLAG" == "$INVALID_FLAG" ]]; then
+            INVALID=true
+            break
+        fi
+    done
+
+    if $INVALID; then
+        echo "Skipping invalid flag combination: $FLAG"
+    else
+        run_tests "$FLAG"
+    fi
+done
+
+exit 0
