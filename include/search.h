@@ -8,6 +8,7 @@
 #include "algo.h"
 #include "arg_parser.h"
 #include "file.h"
+#include "file_stream.h"
 #include "log.h"
 
 #define DEFAULT_BUFFER_SIZE 16384 // 16KB
@@ -27,6 +28,7 @@ typedef struct search_data
     size_t pattern_length;
     bmh_table *table;
     char_buffer buffer;
+    int (*bmh_search)(bmh_search_data*);
     // Cli arguments
     unsigned int flags;
     FILE *out_p;

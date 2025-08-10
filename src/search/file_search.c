@@ -1,6 +1,3 @@
-#include "arg_parser.h"
-#include "file.h"
-#include "file_stream.h"
 #include "search.h"
 
 static inline char_buffer buffer_alloc(cli_args *args);
@@ -68,7 +65,9 @@ static inline search_data set_search_data(cli_args *args)
         .pattern_length = strlen(args->pattern),
         .buffer = buffer_alloc(args),
         .flags = args->flags,
-        .out_p = set_out_path(args)};
+        .out_p = set_out_path(args),
+        .bmh_search = FLAG_SET(args->flags, FLAG_WORD) ? &bmh_find_w : bmh_find,
+    };
 
     if (!FLAG_SET(sd.flags, FLAG_IGNORE_CASE))
         sd.pattern = (char *)sd.arg_pattern;

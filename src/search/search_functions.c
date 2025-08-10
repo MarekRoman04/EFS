@@ -1,6 +1,3 @@
-#include "arg_parser.h"
-#include "file.h"
-#include "file_stream.h"
 #include "search.h"
 
 static inline bmh_search_data set_bmh_search(search_data *sd);
@@ -46,6 +43,7 @@ static inline bmh_search_data set_bmh_search_line(search_data *sd)
     return bmh_sd;
 }
 
+// Sets bmh_search flags
 static inline void set_bmh_flags(bmh_search_data *bmh_sd, search_data *sd)
 {
     if (FLAG_SET(sd->flags, FLAG_IGNORE_CASE))
@@ -93,65 +91,125 @@ static inline int read_line(line_stream *ls, bmh_search_data *bmh_sd)
 
 int quiet_search(search_data *sd, file_list *fl)
 {
-    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
-    if (!fs)
-        log_error("Error creating file_stream!");
-
-    bmh_search_data bmh_sd = set_bmh_search(sd);
-
-    do
+    // Proccess input line by line if searching for words
+    if (FLAG_SET(sd->flags, FLAG_WORD))
     {
-        while (fs->current_file && fs_open_file(fs, "r"))
-            fs_skip_file(fs);
+        size_t i = 0;
+        line_stream *ls = ls_init(fl, sd, &i);
+        bmh_search_data bmh_sd = set_bmh_search(sd);
 
-        if (!fs->current_file)
-            break;
-
-        unsigned char end_idx = 0;
-        while ((bmh_sd.data_length = fs_read_file(fs, sd->buffer.data, sd->buffer.size)))
+        for (; i <= fl->file_count; i++)
         {
-            if (!bmh_find(&bmh_sd))
+            while (read_line(ls, &bmh_sd) != -1)
             {
-                fs_end(fs);
-                return 0;
+                if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+                {
+                    sd->buffer.data = NULL;
+                    fs_ls_end(ls);
+                    return 0;
+                }
             }
-        }
-    } while (fs_has_file(fs));
 
-    fs_end(fs);
+            if (i + 1 <= fl->file_count)
+                fs_ls_file(ls, fl->file_paths[i]);
+        }
+
+        sd->buffer.data = NULL;
+        fs_ls_end(ls);
+    }
+    // Buffered search for pattern match
+    else
+    {
+        file_stream *fs = fs_init(fl->file_paths, fl->file_count);
+        if (!fs)
+            log_error("Error creating file_stream!");
+
+        bmh_search_data bmh_sd = set_bmh_search(sd);
+
+        do
+        {
+            while (fs->current_file && fs_open_file(fs, "r"))
+                fs_skip_file(fs);
+
+            if (!fs->current_file)
+                break;
+
+            unsigned char end_idx = 0;
+            while ((bmh_sd.data_length = fs_read_file(fs, sd->buffer.data, sd->buffer.size)))
+            {
+                if (!sd->bmh_search(&bmh_sd))
+                {
+                    fs_end(fs);
+                    return 0;
+                }
+            }
+        } while (fs_has_file(fs));
+
+        fs_end(fs);
+    }
+
     return 1;
 }
 
 int list_search(search_data *sd, file_list *fl)
 {
     int ret_val = 1;
-    file_stream *fs = fs_init(fl->file_paths, fl->file_count);
-    if (!fs)
-        log_error("Error creating file_stream!");
 
-    bmh_search_data bmh_sd = set_bmh_search(sd);
-
-    do
+    if (FLAG_SET(sd->flags, FLAG_WORD))
     {
-        while (fs->current_file && fs_open_file(fs, "r"))
-            fs_skip_file(fs);
+        size_t i = 0;
+        line_stream *ls = ls_init(fl, sd, &i);
+        bmh_search_data bmh_sd = set_bmh_search(sd);
 
-        if (!fs->current_file)
-            break;
-
-        unsigned char end_idx = 0;
-        while ((bmh_sd.data_length = fs_read_file(fs, sd->buffer.data, sd->buffer.size)))
+        for (; i <= fl->file_count; i++)
         {
-            if (!bmh_find(&bmh_sd))
+            while (read_line(ls, &bmh_sd) != -1)
             {
-                ret_val = 0;
-                fprintf(sd->out_p, "%s\n", *(fs->current_file));
-                break;
+                if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+                {
+                    ret_val = 0;
+                    fprintf(sd->out_p, "%s\n", ls->lsi.file_path);
+                    break;
+                }
             }
-        }
-    } while (fs_has_file(fs));
 
-    fs_end(fs);
+            if (i + 1 <= fl->file_count)
+                fs_ls_file(ls, fl->file_paths[i]);
+        }
+
+        sd->buffer.data = NULL;
+        fs_ls_end(ls);
+    }
+    else
+    {
+        file_stream *fs = fs_init(fl->file_paths, fl->file_count);
+        if (!fs)
+            log_error("Error creating file_stream!");
+
+        bmh_search_data bmh_sd = set_bmh_search(sd);
+
+        do
+        {
+            while (fs->current_file && fs_open_file(fs, "r"))
+                fs_skip_file(fs);
+
+            if (!fs->current_file)
+                break;
+
+            unsigned char end_idx = 0;
+            while ((bmh_sd.data_length = fs_read_file(fs, sd->buffer.data, sd->buffer.size)))
+            {
+                if (!sd->bmh_search(&bmh_sd))
+                {
+                    ret_val = 0;
+                    fprintf(sd->out_p, "%s\n", *(fs->current_file));
+                    break;
+                }
+            }
+        } while (fs_has_file(fs));
+
+        fs_end(fs);
+    }
     return ret_val;
 }
 
@@ -167,7 +225,7 @@ int count_search(search_data *sd, file_list *fl)
         size_t count = 0;
         while (read_line(ls, &bmh_sd) != -1)
         {
-            if ((!bmh_find(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+            if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
             {
                 ret_val = 0;
                 count++;
@@ -201,7 +259,7 @@ int line_number_search(search_data *sd, file_list *fl)
         {
             line++;
 
-            if ((!bmh_find(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+            if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
             {
                 ret_val = 0;
                 fprintf(sd->out_p, "%s:%ld:", ls->lsi.file_path, line);
@@ -231,7 +289,7 @@ int print_search(search_data *sd, file_list *fl)
         int read_val;
         while (read_line(ls, &bmh_sd) != -1)
         {
-            if ((!bmh_find(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+            if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
             {
                 ret_val = 0;
                 fprintf(sd->out_p, "%s:", ls->lsi.file_path);

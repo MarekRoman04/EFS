@@ -4,9 +4,11 @@ static inline size_t bmh_search(const bmh_table *table, const char *pattern, uns
                                 const char *data, size_t data_length, unsigned char start_idx, unsigned char *end_idx);
 static inline size_t bmh_search_i(const bmh_table *table, const char *pattern, unsigned char pattern_length,
                                   const char *data, size_t data_length, unsigned char start_idx, unsigned char *end_idx);
+static inline int is_word_char(char c);
 bmh_table *bmh_pre_process(const char *pattern, unsigned char pattern_length);
 int bmh_count(bmh_search_data *bmh_sd);
 int bmh_find(bmh_search_data *bmh_sd);
+int bmh_find_w(bmh_search_data *bmh_sd);
 
 // Returns table containing skippable characters for each char in pattern
 bmh_table *bmh_pre_process(const char *pattern, unsigned char pattern_length)
@@ -130,14 +132,47 @@ int bmh_count(bmh_search_data *bmh_sd)
  */
 int bmh_find(bmh_search_data *bmh_sd)
 {
-    if (FLAG_SET(bmh_sd->flags, BMH_IGNORE_CASE))
-        return bmh_search_i(bmh_sd->table, bmh_sd->pattern, bmh_sd->pattern_length, bmh_sd->data,
-                            bmh_sd->data_length, bmh_sd->idx, &(bmh_sd->idx)) == BMH_NOT_FOUND
-                   ? 1
-                   : 0;
-    else
-        return bmh_search(bmh_sd->table, bmh_sd->pattern, bmh_sd->pattern_length, bmh_sd->data,
-                          bmh_sd->data_length, bmh_sd->idx, &(bmh_sd->idx)) == BMH_NOT_FOUND
-                   ? 1
-                   : 0;
+    size_t (*search)(const bmh_table *, const char *, unsigned char, const char *, size_t, unsigned char, unsigned char *);
+    search = FLAG_SET(bmh_sd->flags, BMH_IGNORE_CASE) ? &bmh_search_i : &bmh_search;
+
+    return search(bmh_sd->table, bmh_sd->pattern, bmh_sd->pattern_length, bmh_sd->data,
+                  bmh_sd->data_length, bmh_sd->idx, &(bmh_sd->idx)) == BMH_NOT_FOUND
+               ? 1
+               : 0;
+}
+
+static inline int is_word_char(char c)
+{
+    return isalnum((unsigned char)c) || c == '_' || c == '-';
+}
+
+/*
+ * Returns 0 if data contains word, starts search from idx-th character in word
+ * sets end_idx to last matched character index in word before end of data
+ */
+int bmh_find_w(bmh_search_data *bmh_sd)
+{
+    size_t (*search)(const bmh_table *, const char *, unsigned char, const char *, size_t, unsigned char, unsigned char *);
+    search = FLAG_SET(bmh_sd->flags, BMH_IGNORE_CASE) ? &bmh_search_i : &bmh_search;
+
+    size_t data_loc = 0;
+    size_t bmh_result;
+
+    while (data_loc < bmh_sd->data_length)
+    {
+        bmh_result = search(bmh_sd->table, bmh_sd->pattern, bmh_sd->pattern_length, bmh_sd->data + data_loc,
+                            bmh_sd->data_length - data_loc, bmh_sd->idx, &(bmh_sd->idx));
+
+        if (bmh_result == BMH_NOT_FOUND)
+            return 1;
+
+        size_t loc = data_loc + bmh_result;
+        if ((!loc || !is_word_char(bmh_sd->data[loc - 1])) &&
+            (loc + bmh_sd->pattern_length >= bmh_sd->data_length || !is_word_char(bmh_sd->data[loc + bmh_sd->pattern_length])))
+            return 0;
+
+        data_loc += bmh_result + bmh_sd->pattern_length;
+    }
+
+    return 1;
 }

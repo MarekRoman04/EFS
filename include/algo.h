@@ -30,5 +30,6 @@ typedef struct bmh_search_data
 bmh_table *bmh_pre_process(const char *pattern, unsigned char pattern_length);
 int bmh_count(bmh_search_data *bmh_sd);
 int bmh_find(bmh_search_data *bmh_sd);
+int bmh_find_w(bmh_search_data *bmh_sd);
 
 #endif
