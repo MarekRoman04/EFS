@@ -64,11 +64,24 @@ static inline FILE *set_out_path(cli_args *args)
 static inline search_data set_search_data(cli_args *args)
 {
     search_data sd = {
-        .pattern = args->pattern,
+        .arg_pattern = args->pattern,
         .pattern_length = strlen(args->pattern),
         .buffer = buffer_alloc(args),
         .flags = args->flags,
         .out_p = set_out_path(args)};
+
+    if (!FLAG_SET(sd.flags, FLAG_IGNORE_CASE))
+        sd.pattern = (char *)sd.arg_pattern;
+    else
+    {
+        sd.pattern = (char *)malloc(sizeof(char) * sd.pattern_length);
+        if (!sd.pattern)
+            log_error("Error allocating memory!");
+
+        for (size_t i = 0; i < sd.pattern_length; i++)
+            sd.pattern[i] = (char)tolower((unsigned char)sd.arg_pattern[i]);
+    }
+
     sd.table = bmh_pre_process(sd.pattern, (unsigned char)sd.pattern_length);
     if (!sd.table)
         log_error("Error creating bmh_table!");
@@ -83,6 +96,9 @@ static inline void free_search_data(search_data sd)
 
     free(sd.table);
     free(sd.buffer.data);
+
+    if (sd.pattern != sd.arg_pattern)
+        free(sd.pattern);
 }
 
 int start_file_search(cli_args *args)

@@ -9,7 +9,6 @@
 static inline void set_out_path(cli_args *args, const char *value);
 static inline void set_buffer_size(cli_args *args, const char *value);
 static inline void set_thread_count(cli_args *args, const char *value);
-static inline int set_flags_end();
 static inline int parse_option(cli_args *args, char *argv[]);
 cli_args parse_args(int argc, char *argv[]);
 

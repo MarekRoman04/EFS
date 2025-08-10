@@ -2,6 +2,8 @@
 
 static inline size_t bmh_search(const bmh_table *table, const char *pattern, unsigned char pattern_length,
                                 const char *data, size_t data_length, unsigned char start_idx, unsigned char *end_idx);
+static inline size_t bmh_search_i(const bmh_table *table, const char *pattern, unsigned char pattern_length,
+                                  const char *data, size_t data_length, unsigned char start_idx, unsigned char *end_idx);
 bmh_table *bmh_pre_process(const char *pattern, unsigned char pattern_length);
 int bmh_count(bmh_search_data *bmh_sd);
 int bmh_find(bmh_search_data *bmh_sd);
@@ -60,6 +62,46 @@ static inline size_t bmh_search(const bmh_table *table, const char *pattern, uns
 }
 
 /*
+ * Returns location of pattern in given data, if not found returns BHM_NOT_FOUND,
+ * and sets idx to index of last matched character,
+ * ignores case, expects lowercase pattern
+ */
+static inline size_t bmh_search_i(const bmh_table *table, const char *pattern, unsigned char pattern_length,
+                                  const char *data, size_t data_length, unsigned char start_idx, unsigned char *end_idx)
+{
+    if (data_length < pattern_length)
+        return BMH_NOT_FOUND;
+
+    size_t loc = 0;
+    unsigned char j = 0;
+    char c;
+
+    while (loc <= data_length - pattern_length)
+    {
+        j = start_idx;
+        start_idx = 0;
+
+        for (unsigned char i = 0; j < pattern_length; i++, j++)
+        {
+            c = (char)tolower((unsigned char)data[loc + i]);
+            if (c != pattern[j])
+                break;
+        }
+        if (j == pattern_length)
+        {
+            *end_idx = 0;
+            return loc;
+        }
+
+        c = (char)tolower((unsigned char)data[loc + pattern_length - 1]);
+        loc += table[(unsigned char)c];
+    }
+
+    *end_idx = j - 1;
+    return BMH_NOT_FOUND;
+}
+
+/*
  * Returns number of occurences of pattern in data, starts search from idx-th character in pattern
  * sets idx to last matched character index in pattern before end of data
  */
@@ -88,8 +130,14 @@ int bmh_count(bmh_search_data *bmh_sd)
  */
 int bmh_find(bmh_search_data *bmh_sd)
 {
-    return bmh_search(bmh_sd->table, bmh_sd->pattern, bmh_sd->pattern_length, bmh_sd->data,
-                      bmh_sd->data_length, bmh_sd->idx, &(bmh_sd->idx)) == BMH_NOT_FOUND
-               ? 1
-               : 0;
+    if (FLAG_SET(bmh_sd->flags, BMH_IGNORE_CASE))
+        return bmh_search_i(bmh_sd->table, bmh_sd->pattern, bmh_sd->pattern_length, bmh_sd->data,
+                            bmh_sd->data_length, bmh_sd->idx, &(bmh_sd->idx)) == BMH_NOT_FOUND
+                   ? 1
+                   : 0;
+    else
+        return bmh_search(bmh_sd->table, bmh_sd->pattern, bmh_sd->pattern_length, bmh_sd->data,
+                          bmh_sd->data_length, bmh_sd->idx, &(bmh_sd->idx)) == BMH_NOT_FOUND
+                   ? 1
+                   : 0;
 }

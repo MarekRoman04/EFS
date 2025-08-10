@@ -5,6 +5,7 @@
 
 static inline bmh_search_data set_bmh_search(search_data *sd);
 static inline bmh_search_data set_bmh_search_line(search_data *sd);
+static inline void set_bmh_flags(bmh_search_data *bmh_sd, search_data *sd);
 static inline line_stream *ls_init(file_list *fl, search_data *sd, size_t *i);
 static inline int read_line(line_stream *ls, bmh_search_data *bmh_sd);
 int quiet_search(search_data *sd, file_list *fl);
@@ -25,6 +26,8 @@ static inline bmh_search_data set_bmh_search(search_data *sd)
         .idx = 0,
     };
 
+    set_bmh_flags(&bmh_sd, sd);
+
     return bmh_sd;
 }
 
@@ -38,7 +41,17 @@ static inline bmh_search_data set_bmh_search_line(search_data *sd)
         .idx = 0,
     };
 
+    set_bmh_flags(&bmh_sd, sd);
+
     return bmh_sd;
+}
+
+static inline void set_bmh_flags(bmh_search_data *bmh_sd, search_data *sd)
+{
+    if (FLAG_SET(sd->flags, FLAG_IGNORE_CASE))
+        bmh_sd->flags |= BMH_IGNORE_CASE;
+    if (FLAG_SET(sd->flags, FLAG_WORD))
+        bmh_sd->flags |= BHM_WORD;
 }
 
 // Initializes line stream

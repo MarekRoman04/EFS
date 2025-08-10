@@ -27,7 +27,7 @@ typedef struct arg_parser
     char **files;
     int file_count;
     // optional arguments
-    int flags;
+    unsigned int flags;
     size_t buffer_size;        // --buffer-size
     const char *out_path;      // -o or --output
     unsigned int thread_count; // --thread-count or --single-thread
@@ -43,7 +43,7 @@ typedef struct long_opt
 typedef struct long_flag
 {
     const char *flag;
-    int bit;
+    unsigned int bit;
 } long_flag;
 
 extern const long_flag long_flags_map[];

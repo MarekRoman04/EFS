@@ -1,6 +1,7 @@
 #ifndef SEARCH_H
 #define SEARCH_H
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -21,12 +22,13 @@ typedef struct char_buffer
 
 typedef struct search_data
 {
-    const char *pattern;
+    const char *arg_pattern;
+    char *pattern;
     size_t pattern_length;
     bmh_table *table;
     char_buffer buffer;
     // Cli arguments
-    int flags;
+    unsigned int flags;
     FILE *out_p;
 } search_data;
 
