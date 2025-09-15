@@ -14,17 +14,11 @@ int main(int argc, char *argv[])
 {
     cli_args args = parse_args(argc, argv);
 
-    switch (args.flags)
-    {
-    case FLAG_RECURSIVE:
-        // return start_rec_search(args);
-        break;
-    case FLAG_DIRECTORY:
-        // return start_dir_search(args);
-        break;
-    default:
+    if (FLAG_SET(args.flags, FLAG_RECURSIVE))
+        ;
+    // return start_rec_search(args);
+    else
         return start_file_search(&args);
-    }
 }
 
 #else
@@ -48,17 +42,11 @@ int main(int argc, char *argv[])
     printf("Out path: %s\n", args.out_path);
     printf("Threads: %d\n", args.thread_count);
 
-    switch (args.flags)
-    {
-    case FLAG_RECURSIVE:
-        // return start_rec_search(args);
-        break;
-    case FLAG_DIRECTORY:
-        // return start_dir_search(args);
-        break;
-    default:
+    if (FLAG_SET(args.flags, FLAG_RECURSIVE))
+        ;
+    // return start_rec_search(args);
+    else
         return start_file_search(&args);
-    }
 
     return 0;
 }

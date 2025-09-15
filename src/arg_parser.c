@@ -17,7 +17,6 @@ const char *HELP_MESSAGE =
     "\n"
     "Options:\n"
     "  -c, --count           Print only a count of matching lines per file\n"
-    "  -d, --directory       Search all files in directory\n"
     "  -f, --file            Search patterns from file (pattern = line in file)\n"
     "  -i, --ignore-case     Perform case-insensitive matching\n"
     "  -n, --line-number     Show line number for each match\n"
@@ -27,7 +26,7 @@ const char *HELP_MESSAGE =
     "  -v, --invert-match    Select non-matching lines (ignored in combination with -q or -l)\n"
     "  -w, --word            Match only whole words\n"
     "      --output=FILE     Write output to FILE instead of standard output\n"
-    "      --buffer-size=N   Set internal buffer size in bytes (default: 8192)\n"
+    "      --block-size=N    Sets internal buffer size for disk read operation (default: 4KB - 16KB)\n"
     "      --thread-count=N  Set number of worker threads\n"
     "      --single-thread   Force single-threaded operation\n"
     "      --help            Display this help and exit\n";
@@ -35,7 +34,7 @@ const char *HELP_MESSAGE =
 const char *MISSING_ARGS_MESSAGE = "Few or no arguments given!, try --help for more info!";
 
 const long_opt long_opts_map[] = {
-    {"buffer-size", 11, set_buffer_size},
+    {"block-size", 10, set_buffer_size},
     {"output", 6, set_out_path},
     {"thread-count", 12, set_thread_count},
     NULL,
@@ -43,7 +42,6 @@ const long_opt long_opts_map[] = {
 
 const long_flag long_flags_map[] = {
     {"count", FLAG_COUNT},
-    {"directory", FLAG_DIRECTORY},
     {"file", FLAG_FILE},
     {"ignore-case", FLAG_IGNORE_CASE},
     {"line-number", FLAG_LINE_NUMBER},
@@ -68,7 +66,7 @@ static inline void set_buffer_size(cli_args *args, const char *value)
     size_t size = strtoull(value, &endptr, 10);
 
     if (endptr == value || *endptr != '\0')
-        ERROR_INVALID_ARG_VALUE("--buffer-size");
+        ERROR_INVALID_ARG_VALUE("--block-size");
     else
         args->buffer_size = size;
 }
@@ -79,7 +77,7 @@ static inline void set_thread_count(cli_args *args, const char *value)
     size_t count = strtoul(value, &endptr, 10);
 
     if (endptr == value || *endptr != '\0')
-        ERROR_INVALID_ARG_VALUE("--buffer-size");
+        ERROR_INVALID_ARG_VALUE("--block-size");
     else
         args->thread_count = (unsigned int)count;
 }
@@ -176,9 +174,6 @@ cli_args parse_args(int argc, char *argv[])
                 {
                 case 'c':
                     args.flags |= FLAG_COUNT;
-                    break;
-                case 'd':
-                    args.flags |= FLAG_DIRECTORY;
                     break;
                 case 'f':
                     args.flags |= FLAG_FILE;

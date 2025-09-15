@@ -7,16 +7,15 @@
 
 #define FLAGS_END 0
 #define FLAG_COUNT (1 << 0)          // -c or --count flag
-#define FLAG_DIRECTORY (1 << 1)      // -d or --directory flag
-#define FLAG_FILE (1 << 2)           // -f or --file flag
-#define FLAG_IGNORE_CASE (1 << 3)    // -i or --ignore-case flag
-#define FLAG_LINE_NUMBER (1 << 4)    // -n or --line_number flag
-#define FLAG_LIST (1 << 5)           // -l or --list
-#define FLAG_QUIET (1 << 6)          // -q or --quiet flag
-#define FLAG_RECURSIVE (1 << 7)      // -r or --recursive flag
-#define FLAG_INVERT (1 << 8)         // -v or --invert-match flag
-#define FLAG_WORD (1 << 9)           // -w or --word flag
-#define FLAG_SINGLE_THREAD (1 << 10) // --signle-thread flag
+#define FLAG_FILE (1 << 1)           // -f or --file flag
+#define FLAG_IGNORE_CASE (1 << 2)    // -i or --ignore-case flag
+#define FLAG_LINE_NUMBER (1 << 3)    // -n or --line_number flag
+#define FLAG_LIST (1 << 4)           // -l or --list
+#define FLAG_QUIET (1 << 5)          // -q or --quiet flag
+#define FLAG_RECURSIVE (1 << 6)      // -r or --recursive flag
+#define FLAG_INVERT (1 << 7)         // -v or --invert-match flag
+#define FLAG_WORD (1 << 8)           // -w or --word flag
+#define FLAG_SINGLE_THREAD (1 << 9) // --signle-thread flag
 
 #define FLAG_EMPTY 0
 #define FLAG_SET(flags, bit) (!!(flags & bit))
