@@ -61,24 +61,28 @@ static inline FILE *set_out_path(cli_args *args)
 static inline search_data set_search_data(cli_args *args)
 {
     search_data sd = {
-        .arg_pattern = args->pattern,
-        .pattern_length = strlen(args->pattern),
         .buffer = buffer_alloc(args),
         .flags = args->flags,
         .out_p = set_out_path(args),
         .bmh_search = FLAG_SET(args->flags, FLAG_WORD) ? &bmh_find_w : bmh_find,
     };
 
-    if (!FLAG_SET(sd.flags, FLAG_IGNORE_CASE))
-        sd.pattern = (char *)sd.arg_pattern;
-    else
+    sd.fs_searched = fs_init(NULL);
+    if (!sd.fs_searched)
+        log_error("Error allocating file stream!");
+
+    sd.pattern_length = strlen(args->pattern);
+    sd.pattern = (char *)malloc(sizeof(char) * sd.pattern_length);
+    if (!sd.pattern)
+        log_error("Error allocating memory!");
+
+    strcpy(sd.pattern, args->pattern);
+
+    if (FLAG_SET(sd.flags, FLAG_IGNORE_CASE))
     {
-        sd.pattern = (char *)malloc(sizeof(char) * sd.pattern_length);
-        if (!sd.pattern)
-            log_error("Error allocating memory!");
 
         for (size_t i = 0; i < sd.pattern_length; i++)
-            sd.pattern[i] = (char)tolower((unsigned char)sd.arg_pattern[i]);
+            sd.pattern[i] = (char)tolower((unsigned char)sd.pattern[i]);
     }
 
     sd.table = bmh_pre_process(sd.pattern, (unsigned char)sd.pattern_length);
@@ -93,29 +97,53 @@ static inline void free_search_data(search_data sd)
     if (sd.out_p != stdout && sd.out_p != stderr)
         fclose(sd.out_p);
 
+    fs_end(sd.fs_searched);
     free(sd.table);
     free(sd.buffer.data);
-
-    if (sd.pattern != sd.arg_pattern)
-        free(sd.pattern);
+    free(sd.pattern);
 }
 
 int start_file_search(cli_args *args)
 {
-    int ret_val;
+    int ret_val = 1;
     search_data sd = set_search_data(args);
-    file_list fl = list_files(args);
 
+    // Quiet search handled separately to handle early end
     if (FLAG_SET(sd.flags, FLAG_QUIET))
-        ret_val = quiet_search(&sd, &fl);
-    else if (FLAG_SET(sd.flags, FLAG_LIST))
-        ret_val = list_search(&sd, &fl);
-    else if (FLAG_SET(sd.flags, FLAG_COUNT))
-        ret_val = count_search(&sd, &fl);
-    else if (FLAG_SET(sd.flags, FLAG_LINE_NUMBER))
-        ret_val = line_number_search(&sd, &fl);
+    {
+        for (char **current = args->files; current < args->files + args->file_count; current++)
+        {
+            if (fs_open_file(sd.fs_searched, *(current)))
+                continue;
+
+            if (!quiet_search(&sd))
+            {
+                ret_val = 0;
+                break;
+            }
+        }
+    }
     else
-        ret_val = print_search(&sd, &fl);
+    {
+        int (*search_function)(search_data *sd);
+        if (FLAG_SET(sd.flags, FLAG_LIST))
+            search_function = &list_search;
+        else if (FLAG_SET(sd.flags, FLAG_COUNT))
+            search_function = &count_search;
+        else if (FLAG_SET(sd.flags, FLAG_LINE_NUMBER))
+            search_function = &line_number_search;
+        else
+            search_function = &print_search;
+
+        for (char **current = args->files; current < args->files + args->file_count; current++)
+        {
+            if (fs_open_file(sd.fs_searched, *(current)))
+                continue;
+
+            if (!search_function(&sd))
+                ret_val = 0;
+        }
+    }
 
     free_search_data(sd);
     return ret_val;

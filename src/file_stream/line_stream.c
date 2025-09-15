@@ -82,7 +82,7 @@ int fs_ls_read(line_stream *ls)
         // Reads data from file
         if (ls->lsi.buffer_read <= ls->lsi.buffer_idx)
         {
-            ls->lsi.buffer_read =  fs_read(ls->lsi.buffer, ls->lsi.buffer_size, ls->lsi.fp, ls->lsi.file_path);
+            ls->lsi.buffer_read = fread(ls->lsi.buffer, 1, ls->lsi.buffer_size, ls->lsi.fp);
             ls->lsi.buffer_idx = 0;
         }
 

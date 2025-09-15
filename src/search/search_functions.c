@@ -3,13 +3,13 @@
 static inline bmh_search_data set_bmh_search(search_data *sd);
 static inline bmh_search_data set_bmh_search_line(search_data *sd);
 static inline void set_bmh_flags(bmh_search_data *bmh_sd, search_data *sd);
-static inline line_stream *ls_init(file_list *fl, search_data *sd, size_t *i);
+static inline line_stream *ls_init(search_data *sd);
 static inline int read_line(line_stream *ls, bmh_search_data *bmh_sd);
-int quiet_search(search_data *sd, file_list *fl);
-int list_search(search_data *sd, file_list *fl);
-int count_search(search_data *sd, file_list *fl);
-int line_number_search(search_data *sd, file_list *fl);
-int print_search(search_data *sd, file_list *fl);
+int quiet_search(search_data *sd);
+int list_search(search_data *sd);
+int count_search(search_data *sd);
+int line_number_search(search_data *sd);
+int print_search(search_data *sd);
 
 // Initializes bmh_sd for buffered search
 static inline bmh_search_data set_bmh_search(search_data *sd)
@@ -53,17 +53,10 @@ static inline void set_bmh_flags(bmh_search_data *bmh_sd, search_data *sd)
 }
 
 // Initializes line stream
-static inline line_stream *ls_init(file_list *fl, search_data *sd, size_t *i)
+static inline line_stream *ls_init(search_data *sd)
 {
     line_stream *ls = NULL;
-    while (!ls && *i < fl->file_count)
-    {
-        ls = fs_ls_init(fl->file_paths[*i], sd->buffer.data, sd->buffer.size);
-        if (!ls)
-            log_info("Ignoring: %s", fl->file_paths[*i]);
-        (*i)++;
-    }
-
+    ls = fs_ls_init(sd->fs_searched->f_path, sd->buffer.data, sd->buffer.size);
     if (!ls)
         log_error("Error creating line stream!");
 
@@ -89,29 +82,22 @@ static inline int read_line(line_stream *ls, bmh_search_data *bmh_sd)
     return read_val;
 }
 
-int quiet_search(search_data *sd, file_list *fl)
+int quiet_search(search_data *sd)
 {
     // Proccess input line by line if searching for words
     if (FLAG_SET(sd->flags, FLAG_WORD))
     {
-        size_t i = 0;
-        line_stream *ls = ls_init(fl, sd, &i);
+        line_stream *ls = ls_init(sd);
         bmh_search_data bmh_sd = set_bmh_search(sd);
 
-        for (; i <= fl->file_count; i++)
+        while (read_line(ls, &bmh_sd) != -1)
         {
-            while (read_line(ls, &bmh_sd) != -1)
+            if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
             {
-                if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
-                {
-                    sd->buffer.data = NULL;
-                    fs_ls_end(ls);
-                    return 0;
-                }
+                sd->buffer.data = NULL;
+                fs_ls_end(ls);
+                return 0;
             }
-
-            if (i + 1 <= fl->file_count)
-                fs_ls_file(ls, fl->file_paths[i]);
         }
 
         sd->buffer.data = NULL;
@@ -120,122 +106,101 @@ int quiet_search(search_data *sd, file_list *fl)
     // Buffered search for pattern match
     else
     {
-        file_stream *fs = fs_init(fl->file_paths, fl->file_count);
-        if (!fs)
-            log_error("Error creating file_stream!");
-
         bmh_search_data bmh_sd = set_bmh_search(sd);
+        unsigned char end_idx = 0;
 
-        do
+        while ((bmh_sd.data_length = fs_read(sd->fs_searched, sd->buffer.data, sd->buffer.size)))
         {
-            while (fs->current_file && fs_open_file(fs, "r"))
-                fs_skip_file(fs);
-
-            if (!fs->current_file)
-                break;
-
-            unsigned char end_idx = 0;
-            while ((bmh_sd.data_length = fs_read_file(fs, sd->buffer.data, sd->buffer.size)))
-            {
-                if (!sd->bmh_search(&bmh_sd))
-                {
-                    fs_end(fs);
-                    return 0;
-                }
-            }
-        } while (fs_has_file(fs));
-
-        fs_end(fs);
+            if (!sd->bmh_search(&bmh_sd))
+                return 0;
+        }
     }
 
     return 1;
 }
 
-int list_search(search_data *sd, file_list *fl)
+int list_search(search_data *sd)
 {
     int ret_val = 1;
-
+    // Proccess input line by line if searching for words
     if (FLAG_SET(sd->flags, FLAG_WORD))
     {
-        size_t i = 0;
-        line_stream *ls = ls_init(fl, sd, &i);
+        line_stream *ls = ls_init(sd);
         bmh_search_data bmh_sd = set_bmh_search(sd);
 
-        for (; i <= fl->file_count; i++)
+        while (read_line(ls, &bmh_sd) != -1)
         {
-            while (read_line(ls, &bmh_sd) != -1)
+            if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
             {
-                if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
-                {
-                    ret_val = 0;
-                    fprintf(sd->out_p, "%s\n", ls->lsi.file_path);
-                    break;
-                }
+                ret_val = 0;
+                fprintf(sd->out_p, "%s\n", ls->lsi.file_path);
+                break;
             }
-
-            if (i + 1 <= fl->file_count)
-                fs_ls_file(ls, fl->file_paths[i]);
         }
 
         sd->buffer.data = NULL;
         fs_ls_end(ls);
     }
+    // Buffered search for pattern match
     else
     {
-        file_stream *fs = fs_init(fl->file_paths, fl->file_count);
-        if (!fs)
-            log_error("Error creating file_stream!");
-
         bmh_search_data bmh_sd = set_bmh_search(sd);
+        unsigned char end_idx = 0;
 
-        do
+        while ((bmh_sd.data_length = fs_read(sd->fs_searched, sd->buffer.data, sd->buffer.size)))
         {
-            while (fs->current_file && fs_open_file(fs, "r"))
-                fs_skip_file(fs);
-
-            if (!fs->current_file)
+            if (!sd->bmh_search(&bmh_sd))
+            {
+                ret_val = 0;
+                fprintf(sd->out_p, "%s\n", sd->fs_searched->f_path);
                 break;
-
-            unsigned char end_idx = 0;
-            while ((bmh_sd.data_length = fs_read_file(fs, sd->buffer.data, sd->buffer.size)))
-            {
-                if (!sd->bmh_search(&bmh_sd))
-                {
-                    ret_val = 0;
-                    fprintf(sd->out_p, "%s\n", *(fs->current_file));
-                    break;
-                }
             }
-        } while (fs_has_file(fs));
-
-        fs_end(fs);
+        }
     }
+
     return ret_val;
 }
 
-int count_search(search_data *sd, file_list *fl)
+int count_search(search_data *sd)
 {
     int ret_val = 1;
-    size_t i = 0;
-    line_stream *ls = ls_init(fl, sd, &i);
+    size_t count = 0;
+    line_stream *ls = ls_init(sd);
     bmh_search_data bmh_sd = set_bmh_search(sd);
 
-    for (; i <= fl->file_count; i++)
+    while (read_line(ls, &bmh_sd) != -1)
     {
-        size_t count = 0;
-        while (read_line(ls, &bmh_sd) != -1)
+        if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
         {
-            if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
-            {
-                ret_val = 0;
-                count++;
-            }
+            ret_val = 0;
+            count++;
         }
+    }
 
-        fprintf(sd->out_p, "%s:%ld\n", ls->lsi.file_path, count);
+    fprintf(sd->out_p, "%s:%ld\n", ls->lsi.file_path, count);
+    sd->buffer.data = NULL;
+    fs_ls_end(ls);
 
-        if (i + 1 <= fl->file_count)
-            fs_ls_file(ls, fl->file_paths[i]);
+    return ret_val;
+}
+
+int line_number_search(search_data *sd)
+{
+    int ret_val = 1;
+    size_t line = 0;
+    line_stream *ls = ls_init(sd);
+    bmh_search_data bmh_sd = set_bmh_search(sd);
+
+    while (read_line(ls, &bmh_sd) != -1)
+    {
+        line++;
+
+        if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+        {
+            ret_val = 0;
+            fprintf(sd->out_p, "%s:%ld:", ls->lsi.file_path, line);
+            fwrite(ls->line, 1, ls->line_length, sd->out_p);
+        }
     }
 
     sd->buffer.data = NULL;
@@ -244,61 +209,20 @@ int count_search(search_data *sd, file_list *fl)
     return ret_val;
 }
 
-int line_number_search(search_data *sd, file_list *fl)
+int print_search(search_data *sd)
 {
     int ret_val = 1;
-    size_t i = 0;
-    line_stream *ls = ls_init(fl, sd, &i);
+    line_stream *ls = ls_init(sd);
     bmh_search_data bmh_sd = set_bmh_search(sd);
 
-    for (; i <= fl->file_count; i++)
+    while (read_line(ls, &bmh_sd) != -1)
     {
-        size_t line = 0;
-        int read_val;
-        while (read_line(ls, &bmh_sd) != -1)
+        if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
         {
-            line++;
-
-            if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
-            {
-                ret_val = 0;
-                fprintf(sd->out_p, "%s:%ld:", ls->lsi.file_path, line);
-                fwrite(ls->line, 1, ls->line_length, sd->out_p);
-            }
+            ret_val = 0;
+            fprintf(sd->out_p, "%s:", ls->lsi.file_path);
+            fwrite(ls->line, 1, ls->line_length, sd->out_p);
         }
-
-        if (i + 1 <= fl->file_count)
-            fs_ls_file(ls, fl->file_paths[i]);
-    }
-
-    sd->buffer.data = NULL;
-    fs_ls_end(ls);
-
-    return ret_val;
-}
-
-int print_search(search_data *sd, file_list *fl)
-{
-    int ret_val = 1;
-    size_t i = 0;
-    line_stream *ls = ls_init(fl, sd, &i);
-    bmh_search_data bmh_sd = set_bmh_search(sd);
-
-    for (; i <= fl->file_count; i++)
-    {
-        int read_val;
-        while (read_line(ls, &bmh_sd) != -1)
-        {
-            if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
-            {
-                ret_val = 0;
-                fprintf(sd->out_p, "%s:", ls->lsi.file_path);
-                fwrite(ls->line, 1, ls->line_length, sd->out_p);
-            }
-        }
-
-        if (i + 1 <= fl->file_count)
-            fs_ls_file(ls, fl->file_paths[i]);
     }
 
     sd->buffer.data = NULL;

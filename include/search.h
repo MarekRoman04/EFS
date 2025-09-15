@@ -7,7 +7,6 @@
 
 #include "algo.h"
 #include "arg_parser.h"
-#include "file.h"
 #include "file_stream.h"
 #include "log.h"
 
@@ -23,7 +22,7 @@ typedef struct char_buffer
 
 typedef struct search_data
 {
-    const char *arg_pattern;
+    file_stream *fs_searched;
     char *pattern;
     size_t pattern_length;
     bmh_table *table;
@@ -35,11 +34,11 @@ typedef struct search_data
 } search_data;
 
 
-int quiet_search(search_data *sd, file_list *fl);
-int list_search(search_data *sd, file_list *fl);
-int count_search(search_data *sd, file_list *fl);
-int line_number_search(search_data *sd, file_list *fl);
-int print_search(search_data *sd, file_list *fl);
+int quiet_search(search_data *sd);
+int list_search(search_data *sd);
+int count_search(search_data *sd);
+int line_number_search(search_data *sd);
+int print_search(search_data *sd);
 int start_file_search(cli_args *args);
 
 #endif
