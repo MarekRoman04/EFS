@@ -61,6 +61,7 @@ static inline FILE *set_out_path(cli_args *args)
 static inline search_data set_search_data(cli_args *args)
 {
     search_data sd = {
+        .ls_searched = NULL,
         .buffer = buffer_alloc(args),
         .flags = args->flags,
         .out_p = set_out_path(args),
@@ -72,7 +73,7 @@ static inline search_data set_search_data(cli_args *args)
         log_error("Error allocating file stream!");
 
     sd.pattern_length = strlen(args->pattern);
-    sd.pattern = (char *)malloc(sizeof(char) * sd.pattern_length);
+    sd.pattern = (char *)malloc(sizeof(char) * (sd.pattern_length + 1));
     if (!sd.pattern)
         log_error("Error allocating memory!");
 
@@ -96,6 +97,9 @@ static inline void free_search_data(search_data sd)
 {
     if (sd.out_p != stdout && sd.out_p != stderr)
         fclose(sd.out_p);
+
+    if (sd.ls_searched)
+        ls_end(sd.ls_searched);
 
     fs_end(sd.fs_searched);
     free(sd.table);

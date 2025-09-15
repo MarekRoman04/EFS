@@ -67,7 +67,6 @@ typedef struct ls_internal ls_internal;
 
 struct ls_internal
 {
-    const char *file_path;
     FILE *fp;
     char *buffer;
     size_t buffer_idx;
@@ -83,73 +82,96 @@ struct line_stream
     size_t line_length;
 };
 
-line_stream *fs_ls_init(const char *file_path, char *buffer, size_t buffer_size);
-int fs_ls_read(line_stream *ls);
-int fs_ls_file(line_stream *ls, const char *file_path);
-int fs_ls_end(line_stream *ls);
+/*
+ * Initializes line stream from file stream
+ */
+line_stream *ls_init_from_fs(file_stream *fs, char *buffer, size_t buffer_size);
+/*
+ * Reads line from file into line_stream line, overwrites previous read,
+ * sets line_length to read line length including \n,
+ * returns 0 on successful read
+ * returns -1 if no data to read from
+ * retruns 1 if line is longer than available memory,
+ * contains part of the line that was successfully read
+ */
+int ls_read(line_stream *ls);
+/*
+ * Changes file in line stream,
+ * resets read buffer
+ */
+static inline void ls_change_file(line_stream *ls, FILE *fp)
+{
+    ls->lsi.fp = fp;
+    ls->lsi.buffer_idx = 0;
+    ls->lsi.buffer_read = 0;
+}
+/*
+ * Frees memory used by line stream
+ */
+void ls_end(line_stream *ls);
 
 //---------------------------------
 //----DIR STREAM DEFINITIONS------
 //---------------------------------
 
-typedef struct dir_stream
-{
-    int dir_count;
-    char **dir_paths;
-    char **current_dir;
-    DIR *current_dp;
-} dir_stream;
+// typedef struct dir_stream
+// {
+//     int dir_count;
+//     char **dir_paths;
+//     char **current_dir;
+//     DIR *current_dp;
+// } dir_stream;
 
-dir_stream *ds_init(char **dir_paths, int dir_count);
-int ds_open_dir(dir_stream *ds);
-int ds_close_dir(dir_stream *ds);
-int ds_end(dir_stream *ds);
+// dir_stream *ds_init(char **dir_paths, int dir_count);
+// int ds_open_dir(dir_stream *ds);
+// int ds_close_dir(dir_stream *ds);
+// int ds_end(dir_stream *ds);
 
-// Check if there is next directory in stream
-static inline int ds_has_dir(dir_stream *ds)
-{
-    return ds->current_dir + 1 < ds->dir_paths + ds->dir_count;
-}
+// // Check if there is next directory in stream
+// static inline int ds_has_dir(dir_stream *ds)
+// {
+//     return ds->current_dir + 1 < ds->dir_paths + ds->dir_count;
+// }
 
-// Moves current directory pointer to the next directory in stream
-static inline void ds_skip_dir(dir_stream *ds)
-{
-    if (!ds->current_dir)
-        return;
+// // Moves current directory pointer to the next directory in stream
+// static inline void ds_skip_dir(dir_stream *ds)
+// {
+//     if (!ds->current_dir)
+//         return;
 
-    if (ds_has_dir(ds))
-        ds->current_dir++;
-    else
-        ds->current_dir = NULL;
-}
+//     if (ds_has_dir(ds))
+//         ds->current_dir++;
+//     else
+//         ds->current_dir = NULL;
+// }
 
-// Reads content from directory
-static inline struct dirent *ds_read(dir_stream *ds)
-{
-    if (!ds->current_dp)
-    {
-        log_info("No directory to read from!");
-        return NULL;
-    }
+// // Reads content from directory
+// static inline struct dirent *ds_read(dir_stream *ds)
+// {
+//     if (!ds->current_dp)
+//     {
+//         log_info("No directory to read from!");
+//         return NULL;
+//     }
 
-    errno = 0;
-    struct dirent *dp = readdir(ds->current_dp);
+//     errno = 0;
+//     struct dirent *dp = readdir(ds->current_dp);
 
-    if (dp == NULL)
-    {
-        if (errno == 0)
-        {
-            log_info("No file remaining in directory");
-            return NULL;
-        }
-        else
-        {
-            log_errno(0, *(ds->current_dir));
-            return NULL;
-        }
-    }
+//     if (dp == NULL)
+//     {
+//         if (errno == 0)
+//         {
+//             log_info("No file remaining in directory");
+//             return NULL;
+//         }
+//         else
+//         {
+//             log_errno(0, *(ds->current_dir));
+//             return NULL;
+//         }
+//     }
 
-    return dp;
-}
+//     return dp;
+// }
 
 #endif

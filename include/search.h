@@ -23,6 +23,7 @@ typedef struct char_buffer
 typedef struct search_data
 {
     file_stream *fs_searched;
+    line_stream *ls_searched;
     char *pattern;
     size_t pattern_length;
     bmh_table *table;
