@@ -4,7 +4,6 @@
 
 #include "algo.h"
 #include "arg_parser.h"
-#include "file.h"
 #include "log.h"
 #include "search.h"
 
