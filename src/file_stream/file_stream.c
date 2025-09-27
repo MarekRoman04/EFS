@@ -1,5 +1,7 @@
 #include "file_stream.h"
 
+static inline int fs_open(file_stream *fs, const char *f_path);
+
 file_stream *fs_init(const char *f_path);
 int fs_open_file(file_stream *fs, const char *f_path);
 int fs_close_file(file_stream *fs);
@@ -8,16 +10,17 @@ int fs_end(file_stream *fs);
 static inline int fs_open(file_stream *fs, const char *f_path)
 {
     errno = 0;
-    fs->f_path = f_path;
     fs->fp = fopen(f_path, "r");
     if (!fs->fp)
     {
         log_info("Error opening file: %s", f_path);
         if (errno)
-            log_errno(0, f_path);
-
+        log_errno(0, f_path);
+        
         return errno ? errno : 1;
     }
+
+    fs->f_path = f_path;
 
     return 0;
 }
@@ -41,13 +44,11 @@ file_stream *fs_init(const char *f_path)
 
 int fs_open_file(file_stream *fs, const char *f_path)
 {
-    if (!fs->fp)
+    if (fs->fp)
     {
-        return fs_open(fs, f_path);
+        if (fs_close_file(fs))
+            return errno ? errno : 1;
     }
-
-    if (fs_close_file(fs))
-        return errno ? errno : 1;
 
     return fs_open(fs, f_path);
 }

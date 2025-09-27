@@ -1,8 +1,13 @@
 #ifndef FILE_STREAM_H
 #define FILE_STREAM_H
 
+#define _POSIX_C_SOURCE 200809L
+
 #include <dirent.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
 #include "log.h"
 
 //---------------------------------
@@ -21,7 +26,7 @@ typedef struct file_stream
  * Opens file stream from given file,
  * file_stream->file_path is only shallow copy,
  * file path is used only for debug logs,
- * if opening failes file_stream->fp is NULL
+ * if opening failes file_stream->fp and file_stream->f_path are NULL
  */
 file_stream *fs_init(const char *f_path);
 /*
@@ -111,67 +116,100 @@ static inline void ls_change_file(line_stream *ls, FILE *fp)
 void ls_end(line_stream *ls);
 
 //---------------------------------
-//----DIR STREAM DEFINITIONS------
+//----DIR STREAM DEFINITIONS-------
 //---------------------------------
 
-// typedef struct dir_stream
-// {
-//     int dir_count;
-//     char **dir_paths;
-//     char **current_dir;
-//     DIR *current_dp;
-// } dir_stream;
+#define DEFAULT_PATH_SIZE 256
+#define END_OF_DIRECTORY 1
 
-// dir_stream *ds_init(char **dir_paths, int dir_count);
-// int ds_open_dir(dir_stream *ds);
-// int ds_close_dir(dir_stream *ds);
-// int ds_end(dir_stream *ds);
+typedef struct dir_stream
+{
+    const char *dir_name;
+    int dir_name_length;
+    DIR *dp;
+    struct dirent *entry;
+} dir_stream;
+/*
+ * Opens dir stream from given directory,
+ * if dp_at is set, path is relative to the dp_at directory,
+ * dir_stream->dir_name is only shallow copy,
+ * if opening failes dir_stream->dp is NULL
+ * and err is set
+ */
+dir_stream *ds_init(const char *dir_name, DIR *dp_at, int *err);
+/*
+ * Opens directory in dir stream, closes previous directory,
+ * if dp_at is set, path is relative to the dp_at directory,
+ * if closing failes directory is not changed,
+ * if opening failes dir_stream->dp is NULL,
+ */
+int ds_open_dir(dir_stream *ds, DIR *dp_at, const char *dir_name);
+/*
+ * Closes directory in dir stream, sets dir_name to NULL,
+ * if close was successful
+ */
+int ds_close_dir(dir_stream *ds);
+/*
+ * Reads entry from given dir stream,
+ * if no entries remain in directory END_OF_DIRECTORY is returned,
+ */
+int ds_read(dir_stream *ds);
+/*
+ * Frees memory used by dir stream, closes opened directory
+ */
+int ds_end(dir_stream *ds);
 
-// // Check if there is next directory in stream
-// static inline int ds_has_dir(dir_stream *ds)
-// {
-//     return ds->current_dir + 1 < ds->dir_paths + ds->dir_count;
-// }
+//---------------------------------
+//----RDIR STREAM DEFINITIONS------
+//---------------------------------
 
-// // Moves current directory pointer to the next directory in stream
-// static inline void ds_skip_dir(dir_stream *ds)
-// {
-//     if (!ds->current_dir)
-//         return;
+#define DEFAULT_STACK_SIZE 8
+#define NO_MEM_FOR_STACK 2
+#define NO_MEM_FOR_PATH 3
 
-//     if (ds_has_dir(ds))
-//         ds->current_dir++;
-//     else
-//         ds->current_dir = NULL;
-// }
+typedef struct rdir_stream_internal rdir_stream_internal;
+typedef struct rdir_stream rdir_stream;
 
-// // Reads content from directory
-// static inline struct dirent *ds_read(dir_stream *ds)
-// {
-//     if (!ds->current_dp)
-//     {
-//         log_info("No directory to read from!");
-//         return NULL;
-//     }
+struct rdir_stream_internal
+{
+    char *entry_path_buffer;
+    int entry_path_buffer_size;
+    int entry_path_length;
+    dir_stream **ds_stack;
+    dir_stream **ds_stack_top;
+    int ds_stack_size;
+};
 
-//     errno = 0;
-//     struct dirent *dp = readdir(ds->current_dp);
+struct rdir_stream
+{
+    rdir_stream_internal rdsi;
+    char *entry_path;
+    struct dirent *entry;
+    struct stat entry_stat;
+};
 
-//     if (dp == NULL)
-//     {
-//         if (errno == 0)
-//         {
-//             log_info("No file remaining in directory");
-//             return NULL;
-//         }
-//         else
-//         {
-//             log_errno(0, *(ds->current_dir));
-//             return NULL;
-//         }
-//     }
-
-//     return dp;
-// }
+/*
+ * Opens recursive dir stream from given directory,
+ * rdir_stream->entry_path, rdir_stream->entry, rdir_stream->entry_stat
+ * is set after successful rds_read,
+ * if opening directory failes err is set
+ */
+rdir_stream *rds_init(const char *dir_name, int *err);
+/*
+ * Reads entry from recursive dir stream,
+ * if no entries remain in directory END_OF_DIRECTORY is returned
+ * if no memory remains to store entry path NO_MEM_FOR_PATH is returned
+ * if there is no memory for recursive directory stack NO_MEM_FOR_STACK is returned
+ */
+int rds_read(rdir_stream *rds);
+/*
+ * Closes all currently opened directories and opens stream from given directory,
+ * if opening fails no directory remains open in stream
+ */
+int rds_change_dir(rdir_stream *rds, const char *dir_name);
+/*
+ * Closes all opened dir streams and frees memory used by recursive dir stream
+ */
+int rds_end(rdir_stream *rds);
 
 #endif
