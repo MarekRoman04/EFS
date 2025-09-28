@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 
 #include "algo.h"
 #include "arg_parser.h"
@@ -41,5 +42,6 @@ int count_search(search_data *sd);
 int line_number_search(search_data *sd);
 int print_search(search_data *sd);
 int start_file_search(cli_args *args);
+int start_rec_search(cli_args *args);
 
 #endif

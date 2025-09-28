@@ -120,7 +120,7 @@ void ls_end(line_stream *ls);
 //---------------------------------
 
 #define DEFAULT_PATH_SIZE 256
-#define END_OF_DIRECTORY 1
+#define END_OF_DIRECTORY -1
 
 typedef struct dir_stream
 {

@@ -3,8 +3,13 @@
 static inline char_buffer buffer_alloc(cli_args *args);
 static inline FILE *set_out_path(cli_args *args);
 static inline search_data set_search_data(cli_args *args);
+static inline int (*set_search_function(unsigned int flags))(search_data *sd);
+static inline int set_rdir_stream(rdir_stream **rds, const char *dir_name);
+static inline int read_dir(rdir_stream *rds);
+static inline void free_search_data(search_data *sd);
 
 int start_file_search(cli_args *args);
+int start_rec_search(cli_args *args);
 
 // Allocates buffer from args or uses default size (4KB - 16KB)
 static inline char_buffer buffer_alloc(cli_args *args)
@@ -93,18 +98,72 @@ static inline search_data set_search_data(cli_args *args)
     return sd;
 }
 
-static inline void free_search_data(search_data sd)
+// Returns search function based on flags
+static inline int (*set_search_function(unsigned int flags))(search_data *sd)
 {
-    if (sd.out_p != stdout && sd.out_p != stderr)
-        fclose(sd.out_p);
+    if (FLAG_SET(flags, FLAG_LIST))
+        return &list_search;
+    else if (FLAG_SET(flags, FLAG_COUNT))
+        return &count_search;
+    else if (FLAG_SET(flags, FLAG_LINE_NUMBER))
+        return &line_number_search;
+    else
+        return &print_search;
+}
 
-    if (sd.ls_searched)
-        ls_end(sd.ls_searched);
+// Sets directory used in rdir stream
+static inline int set_rdir_stream(rdir_stream **rds, const char *dir_name)
+{
+    if (!(*rds))
+    {
+        int err;
+        *rds = rds_init(dir_name, &err);
+        if (!rds)
+            log_error("Error allocating rdir stream!");
 
-    fs_end(sd.fs_searched);
-    free(sd.table);
-    free(sd.buffer.data);
-    free(sd.pattern);
+        if (err)
+        {
+            log_errno(0, dir_name);
+            return 1;
+        }
+    }
+    else
+    {
+        if (rds_change_dir(*rds, dir_name))
+        {
+            log_errno(0, dir_name);
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+// Reads entry recursively from directory
+static inline int read_dir(rdir_stream *rds)
+{
+    int read_val = rds_read(rds);
+    if (read_val)
+    {
+        if (read_val != END_OF_DIRECTORY)
+            log_info("Error reading in %s", rds->entry_path);
+    }
+
+    return read_val;
+}
+
+static inline void free_search_data(search_data *sd)
+{
+    if (sd->out_p != stdout && sd->out_p != stderr)
+        fclose(sd->out_p);
+
+    if (sd->ls_searched)
+        ls_end(sd->ls_searched);
+
+    fs_end(sd->fs_searched);
+    free(sd->table);
+    free(sd->buffer.data);
+    free(sd->pattern);
 }
 
 int start_file_search(cli_args *args)
@@ -129,15 +188,7 @@ int start_file_search(cli_args *args)
     }
     else
     {
-        int (*search_function)(search_data *sd);
-        if (FLAG_SET(sd.flags, FLAG_LIST))
-            search_function = &list_search;
-        else if (FLAG_SET(sd.flags, FLAG_COUNT))
-            search_function = &count_search;
-        else if (FLAG_SET(sd.flags, FLAG_LINE_NUMBER))
-            search_function = &line_number_search;
-        else
-            search_function = &print_search;
+        int (*search_function)(search_data *sd) = set_search_function(sd.flags);
 
         for (char **current = args->files; current < args->files + args->file_count; current++)
         {
@@ -149,6 +200,99 @@ int start_file_search(cli_args *args)
         }
     }
 
-    free_search_data(sd);
+    free_search_data(&sd);
+    return ret_val;
+}
+
+int start_rec_search(cli_args *args)
+{
+    int ret_val = 1;
+    int fs_err = 0;
+    struct stat file_stat;
+    rdir_stream *rds = NULL;
+    search_data sd = set_search_data(args);
+
+    // Quiet search handled separately to handle early end
+    if (FLAG_SET(sd.flags, FLAG_QUIET))
+    {
+        for (char **current = args->files; current < args->files + args->file_count; current++)
+        {
+            if (stat(*(current), &file_stat))
+            {
+                log_errno(0, *(current));
+                continue;
+            }
+
+            if (S_ISDIR(file_stat.st_mode))
+            {
+                if (set_rdir_stream(&rds, *(current)))
+                    continue;
+
+                while (!read_dir(rds))
+                {
+                    if (fs_open_file(sd.fs_searched, rds->entry_path))
+                        continue;
+
+                    if (!quiet_search(&sd))
+                    {
+                        ret_val = 0;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                if (fs_open_file(sd.fs_searched, *(current)))
+                    continue;
+
+                if (!quiet_search(&sd))
+                {
+                    ret_val = 0;
+                    break;
+                }
+            }
+        }
+    }
+    else
+    {
+        int (*search_function)(search_data *sd) = set_search_function(sd.flags);
+
+        for (char **current = args->files; current < args->files + args->file_count; current++)
+        {
+            if (stat(*(current), &file_stat))
+            {
+                log_errno(0, *(current));
+                continue;
+            }
+
+            if (S_ISDIR(file_stat.st_mode))
+            {
+                if (set_rdir_stream(&rds, *(current)))
+                    continue;
+
+                while (!read_dir(rds))
+                {
+                    if (fs_open_file(sd.fs_searched, rds->entry_path))
+                        continue;
+
+                    if (!search_function(&sd))
+                        ret_val = 0;
+                }
+            }
+            else
+            {
+                if (fs_open_file(sd.fs_searched, *(current)))
+                    continue;
+
+                if (!search_function(&sd))
+                    ret_val = 0;
+            }
+        }
+    }
+
+    if (rds)
+        rds_end(rds);
+
+    free_search_data(&sd);
     return ret_val;
 }

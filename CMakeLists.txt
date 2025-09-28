@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10.0)
-project(EFS VERSION 0.5.0 LANGUAGES C)
+project(EFS VERSION 0.6.0 LANGUAGES C)
 
 # Header file directory
 include_directories(include)
@@ -9,6 +9,7 @@ set(SOURCES
     main.c
     src/algos/bmh.c
     src/arg_parser.c
+    src/file_stream/dir_stream.c
     src/file_stream/file_stream.c
     src/file_stream/line_stream.c
     src/log.c
