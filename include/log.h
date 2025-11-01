@@ -7,14 +7,14 @@
 #include <errno.h>
 #include <string.h>
 
-void* my_malloc(size_t size, const char *file, int line);
+void* log_malloc(size_t size, const char *file, int line);
 void log_error_impl(const char *file, int line, const char *fmt, ...);
 void log_info_impl(const char *file, int line, const char *fmt, ...);
 void log_errno_impl(int level, const char *path, const char *file, int line);
 
 
 #ifdef DEBUG
-#define malloc(size) my_malloc(size, __FILE__, __LINE__)
+#define malloc(size) log_malloc(size, __FILE__, __LINE__)
 #define log_error(fmt, ...) \
     log_error_impl(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 #define log_info(fmt, ...) \

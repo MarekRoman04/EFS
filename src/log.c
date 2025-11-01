@@ -53,10 +53,10 @@ void log_errno_impl(int level, const char *path, const char *file, int line)
     }
 }
 
-void* my_malloc(size_t size, const char *file, int line) {
-    #undef malloc   // remove macro so real malloc is used
+void* log_malloc(size_t size, const char *file, int line) {
+    #undef malloc
     void *p = malloc(size);
-    #define malloc(size) my_malloc(size, __FILE__, __LINE__)
+    #define malloc(size) log_malloc(size, __FILE__, __LINE__)
     printf("malloc(%zu) at %s:%d -> %p\n", size, file, line, p);
     return p;
 }

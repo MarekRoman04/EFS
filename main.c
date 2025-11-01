@@ -40,6 +40,10 @@ int main(int argc, char *argv[])
     printf("Out path: %s\n", args.out_path);
     printf("Threads: %d\n", args.thread_count);
 
+    printf("-----------------\n");
+    printf("----Searching----\n");
+    printf("-----------------\n");
+
     if (FLAG_SET(args.flags, FLAG_RECURSIVE))
         return start_rec_search(&args);
     else

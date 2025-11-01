@@ -1,55 +1,45 @@
 #include "search.h"
 
-static inline bmh_search_data set_bmh_search(search_data *sd);
-static inline bmh_search_data set_bmh_search_line(search_data *sd);
-static inline void set_bmh_flags(bmh_search_data *bmh_sd, search_data *sd);
+static inline bm_data set_bmh_search(search_data *sd);
+static inline bm_data set_bmh_search_line(search_data *sd);
 static inline void ls_init(search_data *sd);
-static inline int read_line(const char *f_path, line_stream *ls, bmh_search_data *bmh_sd);
+static inline int read_line(const char *f_path, line_stream *ls, bm_data *bmd);
 int quiet_search(search_data *sd);
 int list_search(search_data *sd);
 int count_search(search_data *sd);
 int line_number_search(search_data *sd);
 int print_search(search_data *sd);
 
-// Initializes bmh_sd for buffered search
-static inline bmh_search_data set_bmh_search(search_data *sd)
+// Initializes bmd for buffered search
+static inline bm_data set_bmh_search(search_data *sd)
 {
-    bmh_search_data bmh_sd = {
-        .table = sd->table,
+    bm_data bmd = {
+        .bad_char_table = sd->bad_char_table,
+        .good_suffix_table = sd->good_suffix_table,
         .pattern = sd->pattern,
         .pattern_length = sd->pattern_length,
         .data = sd->buffer.data,
         .data_length = 0,
         .idx = 0,
+        .ignore_case = FLAG_SET(sd->flags, FLAG_IGNORE_CASE),
     };
 
-    set_bmh_flags(&bmh_sd, sd);
-
-    return bmh_sd;
+    return bmd;
 }
 
-// Initializes bmh_sd for line search
-static inline bmh_search_data set_bmh_search_line(search_data *sd)
+// Initializes bmd for line search
+static inline bm_data set_bmh_search_line(search_data *sd)
 {
-    bmh_search_data bmh_sd = {
-        .table = sd->table,
+    bm_data bmd = {
+        .bad_char_table = sd->bad_char_table,
+        .good_suffix_table = sd->good_suffix_table,
         .pattern = sd->pattern,
         .pattern_length = sd->pattern_length,
         .idx = 0,
+        .ignore_case = FLAG_SET(sd->flags, FLAG_IGNORE_CASE),
     };
 
-    set_bmh_flags(&bmh_sd, sd);
-
-    return bmh_sd;
-}
-
-// Sets bmh_search flags
-static inline void set_bmh_flags(bmh_search_data *bmh_sd, search_data *sd)
-{
-    if (FLAG_SET(sd->flags, FLAG_IGNORE_CASE))
-        bmh_sd->flags |= BMH_IGNORE_CASE;
-    if (FLAG_SET(sd->flags, FLAG_WORD))
-        bmh_sd->flags |= BHM_WORD;
+    return bmd;
 }
 
 // Initializes line stream
@@ -68,7 +58,7 @@ static inline void ls_init(search_data *sd)
 }
 
 // Reads line from line stream
-static inline int read_line(const char *f_path, line_stream *ls, bmh_search_data *bmh_sd)
+static inline int read_line(const char *f_path, line_stream *ls, bm_data *bmd)
 {
     int read_val = ls_read(ls);
     if (read_val)
@@ -79,9 +69,9 @@ static inline int read_line(const char *f_path, line_stream *ls, bmh_search_data
             log_info("Error reading line in %s", f_path);
     }
 
-    bmh_sd->data = ls->line;
-    bmh_sd->data_length = ls->line_length;
-    bmh_sd->idx = 0;
+    bmd->data = ls->line;
+    bmd->data_length = ls->line_length;
+    bmd->idx = 0;
 
     return read_val;
 }
@@ -92,23 +82,22 @@ int quiet_search(search_data *sd)
     if (FLAG_SET(sd->flags, FLAG_WORD))
     {
         ls_init(sd);
-        bmh_search_data bmh_sd = set_bmh_search(sd);
+        bm_data bmd = set_bmh_search(sd);
 
-        while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmh_sd) != -1)
+        while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmd) != -1)
         {
-            if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+            if ((!sd->bmh_search(&bmd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
                 return 0;
         }
     }
     // Buffered search for pattern match
     else
     {
-        bmh_search_data bmh_sd = set_bmh_search(sd);
-        unsigned char end_idx = 0;
+        bm_data bmd = set_bmh_search(sd);
 
-        while ((bmh_sd.data_length = fs_read(sd->fs_searched, sd->buffer.data, sd->buffer.size)))
+        while ((bmd.data_length = fs_read(sd->fs_searched, sd->buffer.data, sd->buffer.size)))
         {
-            if (!sd->bmh_search(&bmh_sd))
+            if (!sd->bmh_search(&bmd))
                 return 0;
         }
     }
@@ -123,11 +112,11 @@ int list_search(search_data *sd)
     if (FLAG_SET(sd->flags, FLAG_WORD))
     {
         ls_init(sd);
-        bmh_search_data bmh_sd = set_bmh_search(sd);
+        bm_data bmd = set_bmh_search(sd);
 
-        while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmh_sd) != -1)
+        while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmd) != -1)
         {
-            if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+            if ((!sd->bmh_search(&bmd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
             {
                 ret_val = 0;
                 fprintf(sd->out_p, "%s\n", sd->fs_searched->f_path);
@@ -140,12 +129,11 @@ int list_search(search_data *sd)
     // Buffered search for pattern match
     else
     {
-        bmh_search_data bmh_sd = set_bmh_search(sd);
-        unsigned char end_idx = 0;
+        bm_data bmd = set_bmh_search(sd);
 
-        while ((bmh_sd.data_length = fs_read(sd->fs_searched, sd->buffer.data, sd->buffer.size)))
+        while ((bmd.data_length = fs_read(sd->fs_searched, sd->buffer.data, sd->buffer.size)))
         {
-            if (!sd->bmh_search(&bmh_sd))
+            if (!sd->bmh_search(&bmd))
             {
                 ret_val = 0;
                 fprintf(sd->out_p, "%s\n", sd->fs_searched->f_path);
@@ -162,11 +150,11 @@ int count_search(search_data *sd)
     int ret_val = 1;
     size_t count = 0;
     ls_init(sd);
-    bmh_search_data bmh_sd = set_bmh_search(sd);
+    bm_data bmd = set_bmh_search(sd);
 
-    while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmh_sd) != -1)
+    while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmd) != -1)
     {
-        if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+        if ((!sd->bmh_search(&bmd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
         {
             ret_val = 0;
             count++;
@@ -183,13 +171,13 @@ int line_number_search(search_data *sd)
     int ret_val = 1;
     size_t line = 0;
     ls_init(sd);
-    bmh_search_data bmh_sd = set_bmh_search(sd);
+    bm_data bmd = set_bmh_search(sd);
 
-    while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmh_sd) != -1)
+    while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmd) != -1)
     {
         line++;
 
-        if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+        if ((!sd->bmh_search(&bmd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
         {
             ret_val = 0;
             fprintf(sd->out_p, "%s:%ld:", sd->fs_searched->f_path, line);
@@ -204,11 +192,11 @@ int print_search(search_data *sd)
 {
     int ret_val = 1;
     ls_init(sd);
-    bmh_search_data bmh_sd = set_bmh_search(sd);
+    bm_data bmd = set_bmh_search(sd);
 
-    while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmh_sd) != -1)
+    while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmd) != -1)
     {
-        if ((!sd->bmh_search(&bmh_sd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+        if ((!sd->bmh_search(&bmd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
         {
             ret_val = 0;
             fprintf(sd->out_p, "%s:", sd->fs_searched->f_path);

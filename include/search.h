@@ -27,9 +27,10 @@ typedef struct search_data
     line_stream *ls_searched;
     char *pattern;
     size_t pattern_length;
-    bmh_table *table;
+    uint8_t *bad_char_table;
+    uint8_t *good_suffix_table;
     char_buffer buffer;
-    int (*bmh_search)(bmh_search_data*);
+    int (*bmh_search)(bm_data*);
     // Cli arguments
     unsigned int flags;
     FILE *out_p;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10.0)
-project(EFS VERSION 0.6.0 LANGUAGES C)
+project(EFS VERSION 0.7.0 LANGUAGES C)
 
 # Header file directory
 include_directories(include)
@@ -7,7 +7,7 @@ include_directories(include)
 # Source files
 set(SOURCES
     main.c
-    src/algos/bmh.c
+    src/algos/bm.c
     src/arg_parser.c
     src/file_stream/dir_stream.c
     src/file_stream/file_stream.c
@@ -26,5 +26,14 @@ set(HEADERS
     include/search.h
 )
 
-# add_compile_definitions(DEBUG)
+if (CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+option(DEBUG_MODE "Enable debug mode" OFF)
+
+if(DEBUG_MODE)
+    add_compile_definitions(DEBUG)
+endif()
+
 add_executable(efs ${SOURCES} ${HEADERS})

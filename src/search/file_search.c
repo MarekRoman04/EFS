@@ -70,7 +70,7 @@ static inline search_data set_search_data(cli_args *args)
         .buffer = buffer_alloc(args),
         .flags = args->flags,
         .out_p = set_out_path(args),
-        .bmh_search = FLAG_SET(args->flags, FLAG_WORD) ? &bmh_find_w : bmh_find,
+        .bmh_search = FLAG_SET(args->flags, FLAG_WORD) ? &bm_find_w : bm_find,
     };
 
     sd.fs_searched = fs_init(NULL);
@@ -91,9 +91,18 @@ static inline search_data set_search_data(cli_args *args)
             sd.pattern[i] = (char)tolower((unsigned char)sd.pattern[i]);
     }
 
-    sd.table = bmh_pre_process(sd.pattern, (unsigned char)sd.pattern_length);
-    if (!sd.table)
-        log_error("Error creating bmh_table!");
+    sd.bad_char_table = bm_bad_char_table(sd.pattern, (uint8_t)sd.pattern_length);
+    if (!sd.bad_char_table)
+        log_error("Error creating bm table!");
+
+    // if (sd.pattern_length > 16)
+    // {
+    //     sd.good_suffix_table = bm_good_suffix_table(sd.pattern, (uint8_t)sd.pattern_length);
+    //     if (!sd.good_suffix_table)
+    //         log_error("Error creating bm table");
+    // }
+    // else
+    sd.good_suffix_table = NULL;
 
     return sd;
 }
@@ -161,7 +170,8 @@ static inline void free_search_data(search_data *sd)
         ls_end(sd->ls_searched);
 
     fs_end(sd->fs_searched);
-    free(sd->table);
+    free(sd->bad_char_table);
+    free(sd->good_suffix_table);
     free(sd->buffer.data);
     free(sd->pattern);
 }
@@ -207,7 +217,6 @@ int start_file_search(cli_args *args)
 int start_rec_search(cli_args *args)
 {
     int ret_val = 1;
-    int fs_err = 0;
     struct stat file_stat;
     rdir_stream *rds = NULL;
     search_data sd = set_search_data(args);
