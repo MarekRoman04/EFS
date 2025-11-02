@@ -75,48 +75,84 @@ typedef struct rp_data
 } rp_data;
 
 //---------------------------------
-//----HT DEFINITIONS--------
+//----HASH SET DEFITIONS-----------
 //---------------------------------
 
 #define TABLE_MIN_BUCKETS 16
 #define FNV_OFFSET_BASIS 14695981039346656037UL
 #define FNV_PRIME 1099511628211UL
 
-typedef struct ht ht;
-typedef struct ht_entry ht_entry;
+typedef struct h_set h_set;
+typedef struct h_set_entry h_set_entry;
+typedef struct h_set_iterator h_set_iterator;
 
-struct ht
+struct h_set
 {
-    ht_entry *entries;
+    h_set_entry *entries;
     int capacity;
     int length;
 };
 
-struct ht_entry
+struct h_set_entry
 {
     const char *data;
     size_t data_length;
-    ht_entry *next;
+    h_set_entry *next;
 };
+
+struct h_set_iterator
+{
+    h_set *hs;
+    int idx;
+    h_set_entry *entry;
+};
+
 /*
  * FNV-1a hash function
  */
 uint64_t fnv_1a_hash(const char *data, size_t data_length);
-
 /*
- * Inits empty string hash table
+ * Inits empty hash set
  */
-ht *ht_init();
-
+h_set *h_set_init();
 /*
- * Adds element to hash table,
- * if entries are 2/3 full table is automatically resized
+ * Check if hash set contains given data
+ * if set contains data returns 0 otherwise -1
  */
-int ht_add(ht *ht, const char *data, size_t data_length);
-
+int h_set_has(h_set *hs, const char *data, size_t data_length);
 /*
- * Frees all memory used by string hash table
+ * Adds element to hash set,
+ * if entries are 2/3 full set is automatically resized
+ * if set already contains entry returns 1, set remains unchanged
  */
-void ht_end(ht *ht);
+int h_set_add(h_set *hs, const char *data, size_t data_length);
+/*
+ * Frees all memory used by hash set
+ */
+void h_set_end(h_set *hs);
+/*
+ * Inits hash set iterator,
+ * Iterator needs to be reset after adding elements
+ * otherwise some elements may be skipped
+ */
+h_set_iterator *h_set_iterator_init(h_set *hs);
+/*
+ * Resets position of hash set iterator
+ */
+static inline void h_set_iterator_reset(h_set_iterator *hsi)
+{
+    hsi->idx = 0;
+    hsi->entry = &hsi->hs->entries[0];
+}
+/*
+ * Gets data from hash set,
+ * sets out_length to size of data returned,
+ * returns NULL if no data remain, out_length remains unchanged
+ */
+const char *h_set_iterator_get(h_set_iterator *hsi, size_t *out_length);
+/*
+ * Ends hash set iterator and frees memory used,
+ */
+void h_set_iterator_end(h_set_iterator *hsi);
 
 #endif

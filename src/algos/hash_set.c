@@ -2,8 +2,11 @@
 
 uint64_t fnv_1a_hash(const char *data, size_t data_length);
 h_set *h_set_init();
-int h_set_add(h_set *h_set, const char *data, size_t data_length);
-void h_set_end(h_set *h_set);
+int h_set_add(h_set *hs, const char *data, size_t data_length);
+void h_set_end(h_set *hs);
+h_set_iterator *h_set_iterator_init(h_set *hs);
+const char *h_set_iterator_get(h_set_iterator *hsi, size_t *out_length);
+void h_set_iterator_end(h_set_iterator *hsi);
 
 static inline int h_set_add_entry(h_set_entry *entries, int idx, const char *data, size_t data_length);
 static inline int h_set_grow(h_set *h_set);
@@ -16,6 +19,7 @@ static inline int h_set_add_entry(h_set_entry *entries, int idx, const char *dat
 
     if (data_entry->data)
     {
+        printf("COLLISION!\n");
         h_set_entry *new_entry = malloc(sizeof(h_set_entry));
         if (!new_entry)
         {
@@ -38,9 +42,12 @@ static inline int h_set_add_entry(h_set_entry *entries, int idx, const char *dat
 }
 
 // Exponentialy grows table, copies entries to newly created entry list
-static inline int h_set_grow(h_set *h_set)
+static inline int h_set_grow(h_set *hs)
 {
-    int new_capacity = h_set->capacity * 2;
+    printf("GROW\n");
+    printf("GROW\n");
+    printf("GROW\n");
+    int new_capacity = hs->capacity * 2;
     h_set_entry *new_entries = calloc(new_capacity, sizeof(h_set_entry));
     if (!new_entries)
     {
@@ -48,9 +55,9 @@ static inline int h_set_grow(h_set *h_set)
         return -1;
     }
 
-    for (int i = 0; i < h_set->capacity; i++)
+    for (int i = 0; i < hs->capacity; i++)
     {
-        h_set_entry *entry = &h_set->entries[i];
+        h_set_entry *entry = &hs->entries[i];
         if (!entry->data)
             continue;
 
@@ -66,9 +73,9 @@ static inline int h_set_grow(h_set *h_set)
         }
     }
 
-    h_set_free_entries(h_set->entries, h_set->capacity);
-    h_set->capacity = new_capacity;
-    h_set->entries = new_entries;
+    h_set_free_entries(hs->entries, hs->capacity);
+    hs->capacity = new_capacity;
+    hs->entries = new_entries;
     return 0;
 }
 
@@ -102,50 +109,50 @@ uint64_t fnv_1a_hash(const char *data, size_t data_length)
 
 h_set *h_set_init()
 {
-    h_set *h_set = malloc(sizeof(h_set));
-    if (!h_set)
+    h_set *hs = malloc(sizeof(h_set));
+    if (!hs)
     {
         log_info("Error allocating memory!");
         return NULL;
     }
 
-    h_set->capacity = TABLE_MIN_BUCKETS;
-    h_set->length = 0;
-    h_set->entries = calloc(h_set->capacity, sizeof(h_set_entry));
-    if (!h_set->entries)
+    hs->capacity = TABLE_MIN_BUCKETS;
+    hs->length = 0;
+    hs->entries = calloc(hs->capacity, sizeof(h_set_entry));
+    if (!hs->entries)
     {
-        free(h_set);
+        free(hs);
         log_info("Error allocating memory!");
         return NULL;
     }
 
-    return h_set;
+    return hs;
 }
 
-int h_set_add(h_set *h_set, const char *data, size_t data_length)
+int h_set_add(h_set *hs, const char *data, size_t data_length)
 {
-    if (!h_set_has(h_set, data, data_length))
+    if (!h_set_has(hs, data, data_length))
         return 1;
 
-    if (h_set->length > (h_set->capacity * 2 / 3) && h_set_grow(h_set))
+    if (hs->length > (hs->capacity * 2 / 3) && h_set_grow(hs))
     {
         log_info("Error resizing table!");
         return -1;
     }
 
-    uint64_t idx = fnv_1a_hash(data, data_length) % h_set->capacity;
-    if (h_set_add_entry(h_set->entries, idx, data, data_length))
+    uint64_t idx = fnv_1a_hash(data, data_length) % hs->capacity;
+    if (h_set_add_entry(hs->entries, idx, data, data_length))
         return -1;
 
-    h_set->length++;
+    hs->length++;
 
     return 0;
 }
 
-int h_set_has(h_set *h_set, const char *data, size_t data_length)
+int h_set_has(h_set *hs, const char *data, size_t data_length)
 {
-    int idx = fnv_1a_hash(data, data_length) % h_set->capacity;
-    h_set_entry *entry = &h_set->entries[idx];
+    int idx = fnv_1a_hash(data, data_length) % hs->capacity;
+    h_set_entry *entry = &hs->entries[idx];
     for (; entry; entry = entry->next)
     {
         if (!entry->data)
@@ -158,8 +165,53 @@ int h_set_has(h_set *h_set, const char *data, size_t data_length)
     return -1;
 }
 
-void h_set_end(h_set *h_set)
+void h_set_end(h_set *hs)
 {
-    h_set_free_entries(h_set->entries, h_set->capacity);
-    free(h_set);
+    h_set_free_entries(hs->entries, hs->capacity);
+    free(hs);
+}
+
+h_set_iterator *h_set_iterator_init(h_set *hs)
+{
+    h_set_iterator *hsi = malloc(sizeof(h_set_iterator));
+    if (!hsi)
+    {
+        log_info("Error allocating memory!");
+        return NULL;
+    }
+
+    hsi->hs = hs;
+    h_set_iterator_reset(hsi);
+
+    return hsi;
+}
+
+const char *h_set_iterator_get(h_set_iterator *hsi, size_t *out_length)
+{
+    const char *ret_val = NULL;
+
+    while (hsi->idx < hsi->hs->capacity)
+    {
+        while (hsi->entry)
+        {
+            if (!hsi->entry->data)
+                break;
+
+            ret_val = hsi->entry->data;
+            *out_length = hsi->entry->data_length;
+            hsi->entry = hsi->entry->next;
+            return ret_val;
+        }
+
+        hsi->idx++;
+        if (hsi->idx < hsi->hs->capacity)
+            hsi->entry = &hsi->hs->entries[hsi->idx];
+    }
+
+    return ret_val;
+}
+
+void h_set_iterator_end(h_set_iterator *hsi)
+{
+    free(hsi);
 }

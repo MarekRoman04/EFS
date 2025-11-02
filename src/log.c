@@ -60,3 +60,12 @@ void* log_malloc(size_t size, const char *file, int line) {
     printf("malloc(%zu) at %s:%d -> %p\n", size, file, line, p);
     return p;
 }
+
+void* log_calloc(size_t elems, size_t size, const char *file, int line)
+{
+    #undef calloc
+    void *p = calloc(elems, size);
+    #define calloc(num, size) log_calloc(num, size, __FILE__, __LINE__)
+    printf("calloc(%zu) at %s:%d -> %p\n", elems * size, file, line, p);
+    return p;
+}
