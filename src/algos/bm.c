@@ -168,7 +168,7 @@ int bm_count(bm_data *bmd)
 
 int bm_find(bm_data *bmd)
 {
-    bm_search_function search = bm_functions[bmd->good_suffix_table != NULL][bmd->ignore_case];
+    bm_search_function search = bm_functions[(_Bool)(bmd->good_suffix_table != NULL)][bmd->ignore_case];
     return search(bmd->bad_char_table, bmd->good_suffix_table, bmd->pattern, bmd->pattern_length,
                   bmd->data, bmd->data_length, bmd->idx, &(bmd->idx)) == NOT_FOUND
                ? 1
@@ -177,7 +177,7 @@ int bm_find(bm_data *bmd)
 
 int bm_find_w(bm_data *bmd)
 {
-    bm_search_function search = bm_functions[bmd->good_suffix_table != NULL][bmd->ignore_case];
+    bm_search_function search = bm_functions[(_Bool)(bmd->good_suffix_table != NULL)][bmd->ignore_case];
     size_t data_loc = 0;
     size_t bmh_result;
 

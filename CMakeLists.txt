@@ -9,6 +9,7 @@ set(SOURCES
     main.c
     src/algos/bm.c
     src/algos/hash_set.c
+    src/algos/rabin_karp.c
     src/arg_parser.c
     src/file_stream/dir_stream.c
     src/file_stream/file_stream.c

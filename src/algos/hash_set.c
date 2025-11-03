@@ -1,6 +1,5 @@
 #include <algo.h>
 
-uint64_t fnv_1a_hash(const char *data, size_t data_length);
 h_set *h_set_init();
 int h_set_add(h_set *hs, const char *data, size_t data_length);
 void h_set_end(h_set *hs);
@@ -8,9 +7,23 @@ h_set_iterator *h_set_iterator_init(h_set *hs);
 const char *h_set_iterator_get(h_set_iterator *hsi, size_t *out_length);
 void h_set_iterator_end(h_set_iterator *hsi);
 
+static inline uint64_t fnv_1a_hash(const char *data, size_t data_length);
 static inline int h_set_add_entry(h_set_entry *entries, int idx, const char *data, size_t data_length);
 static inline int h_set_grow(h_set *h_set);
 static inline void h_set_free_entries(h_set_entry *entries, int count);
+
+// FNV-1a hash function
+static inline uint64_t fnv_1a_hash(const char *data, size_t data_length)
+{
+    uint64_t hash = FNV_OFFSET_BASIS;
+    for (size_t i = 0; i < data_length; i++)
+    {
+        hash ^= (uint64_t)(unsigned char)data[i];
+        hash *= FNV_PRIME;
+    }
+
+    return hash;
+}
 
 // Adds entry to h_set->entries on idx, on collision creates new entry node
 static inline int h_set_add_entry(h_set_entry *entries, int idx, const char *data, size_t data_length)
@@ -19,7 +32,6 @@ static inline int h_set_add_entry(h_set_entry *entries, int idx, const char *dat
 
     if (data_entry->data)
     {
-        printf("COLLISION!\n");
         h_set_entry *new_entry = malloc(sizeof(h_set_entry));
         if (!new_entry)
         {
@@ -44,9 +56,6 @@ static inline int h_set_add_entry(h_set_entry *entries, int idx, const char *dat
 // Exponentialy grows table, copies entries to newly created entry list
 static inline int h_set_grow(h_set *hs)
 {
-    printf("GROW\n");
-    printf("GROW\n");
-    printf("GROW\n");
     int new_capacity = hs->capacity * 2;
     h_set_entry *new_entries = calloc(new_capacity, sizeof(h_set_entry));
     if (!new_entries)
@@ -93,18 +102,6 @@ static inline void h_set_free_entries(h_set_entry *entries, int count)
     }
 
     free(entries);
-}
-
-uint64_t fnv_1a_hash(const char *data, size_t data_length)
-{
-    uint64_t hash = FNV_OFFSET_BASIS;
-    for (size_t i = 0; i < data_length; i++)
-    {
-        hash ^= (uint64_t)(unsigned char)data[i];
-        hash *= FNV_PRIME;
-    }
-
-    return hash;
 }
 
 h_set *h_set_init()
