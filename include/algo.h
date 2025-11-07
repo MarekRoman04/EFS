@@ -10,6 +10,11 @@
 
 #define NOT_FOUND ((size_t)-1)
 
+static inline int is_word_char(char c)
+{
+    return isalnum((unsigned char)c) || c == '_' || c == '-';
+}
+
 //---------------------------------
 //----HASH SET DEFITIONS-----------
 //---------------------------------
@@ -177,7 +182,20 @@ struct rk_data_hash
  * expects all pattern lengths to be less or equal to data length
  */
 rk_search *rk_search_init(rk_data *rkd);
-
+/*
+ * Returns number of occurences of patterns in data,
+ * patterns starting at same position are counted only once
+ */
+int rk_count(rk_search *rks, const char *data, size_t data_length);
+/*
+ * Returns 0 if data contains any pattern from given set
+ *
+ */
+int rk_find(rk_search *rks, const char *data, size_t data_length);
+/*
+ * Returns 0 if data contains any word from given set
+ */
+int rk_find_w(rk_search *rks, const char *data, size_t data_length);
 /*
  * Frees memory used by rk search
  */

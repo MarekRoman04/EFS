@@ -22,7 +22,7 @@ int bm_find(bm_data *bmd);
 int bm_find_w(bm_data *bmd);
 
 /*
- * Returns location of pattern in given data, if not found returns BHM_NOT_FOUND,
+ * Returns location of pattern in given data, if not found returns NOT_FOUND,
  * and sets idx to index of last matched character
  */
 static inline size_t bmh_search(const uint8_t *table, const uint8_t *_table, const char *pattern, uint8_t pattern_length,
@@ -111,11 +111,6 @@ static inline size_t bm_search_i(const uint8_t *bad_table, const uint8_t *good_t
                                  const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx)
 {
     log_error("TO-DO!");
-}
-
-static inline int is_word_char(char c)
-{
-    return isalnum((unsigned char)c) || c == '_' || c == '-';
 }
 
 /*
