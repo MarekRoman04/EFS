@@ -168,6 +168,7 @@ struct rk_search
 struct rk_data_hash
 {
     uint64_t data_hash;
+    uint64_t mod_power;
     size_t data_length;
 };
 

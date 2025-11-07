@@ -4,10 +4,13 @@ rk_search *rk_search_init(rk_data *rkd);
 void rk_search_end(rk_search *rks);
 
 static inline h_set *rk_get_pattern_set(const char **patterns, size_t *pattern_lengths, size_t count);
-static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern_lengths, size_t count, h_set_iterator **out_iterator);
-static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t *pattern_lengths, size_t count, size_t *out_length);
+static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern_lengths, size_t count,
+                                           size_t data_length, h_set_iterator **out_iterator);
+static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t data_length, size_t *patern_lengths, size_t count, size_t *out_length);
 static inline void rk_free_hashes(h_set_iterator *hsi);
+static inline void rk_free_sizes(h_set_iterator *hsi);
 static inline uint64_t rk_hash(const char *data, size_t data_length);
+static inline uint64_t rk_mod_power(size_t exp);
 
 // Creates hash set from paterns
 static inline h_set *rk_get_pattern_set(const char **patterns, size_t *pattern_lengths, size_t count)
@@ -33,7 +36,8 @@ static inline h_set *rk_get_pattern_set(const char **patterns, size_t *pattern_l
 }
 
 // Creates hash set containing hashed patterns and iterator to it
-static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern_lengths, size_t count, h_set_iterator **out_iterator)
+static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern_lengths, size_t count,
+                                           size_t data_length, h_set_iterator **out_iterator)
 {
     h_set *hs = h_set_init();
     if (!hs)
@@ -61,6 +65,9 @@ static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern
 
     for (size_t i = 0; i < count; i++)
     {
+        if (patern_lengths[i] > data_length)
+            continue;
+
         if (!hash)
         {
             hash = malloc(sizeof(uint64_t));
@@ -96,7 +103,7 @@ static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern
 }
 
 // Creates array containing rolling hashes for each pattern length
-static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t *patern_lengths, size_t count, size_t *out_length)
+static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t data_length, size_t *patern_lengths, size_t count, size_t *out_length)
 {
     h_set *hs = h_set_init();
     if (!hs)
@@ -113,8 +120,8 @@ static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t *patern_
         return NULL;
     }
 
-    rk_data_hash *hash = malloc(sizeof(rk_data_hash));
-    if (!hash)
+    size_t *size = malloc(sizeof(size_t));
+    if (!size)
     {
         log_info("Error allocating memory!");
         h_set_iterator_end(hsi);
@@ -124,43 +131,45 @@ static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t *patern_
 
     for (size_t i = 0; i < count; i++)
     {
-        if (!hash)
+        if (patern_lengths[i] > data_length)
+            continue;
+
+        if (!size)
         {
-            hash = malloc(sizeof(rk_data_hash));
-            if (!hash)
+            size = malloc(sizeof(size_t));
+            if (!size)
             {
                 log_info("Error allocating memory!");
-                rk_free_hashes(hsi);
+                rk_free_sizes(hsi);
                 h_set_iterator_end(hsi);
                 h_set_end(hs);
                 return NULL;
             }
         }
 
-        hash->data_hash = rk_hash(data, patern_lengths[i]);
-        hash->data_length = patern_lengths[i];
+        *size = patern_lengths[i];
 
-        int ret_val = h_set_add(hs, (const char *)hash, sizeof(*hash));
+        int ret_val = h_set_add(hs, (const char *)size, sizeof(*size));
         if (!ret_val)
-            hash = NULL;
+            size = NULL;
         else if (ret_val < 0)
         {
             log_info("Error adding element to hash set!");
-            rk_free_hashes(hsi);
+            rk_free_sizes(hsi);
             h_set_iterator_end(hsi);
             h_set_end(hs);
             return NULL;
         }
     }
 
-    if (hash)
-        free(hash);
+    if (size)
+        free(size);
 
     rk_data_hash *rkd_hashes = malloc(sizeof(rk_data_hash) * hs->length);
     if (!rkd_hashes)
     {
         log_info("Error allocating memory!");
-        rk_free_hashes(hsi);
+        rk_free_sizes(hsi);
         h_set_iterator_end(hsi);
         h_set_end(hs);
         return NULL;
@@ -168,17 +177,18 @@ static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t *patern_
 
     size_t i = 0;
     size_t length;
-    while ((hash = (rk_data_hash *)h_set_iterator_get(hsi, &length)))
+    while ((size = (size_t *)h_set_iterator_get(hsi, &length)))
     {
-        rkd_hashes[i].data_hash = hash->data_hash;
-        rkd_hashes[i].data_length = hash->data_length;
+        rkd_hashes[i].data_hash = rk_hash(data, *size);
+        rkd_hashes[i].mod_power = rk_mod_power(*size - 1);
+        rkd_hashes[i].data_length = *size;
         i++;
     }
 
     *out_length = i;
     printf("Written: %lu\n", i);
 
-    rk_free_hashes(hsi);
+    rk_free_sizes(hsi);
     h_set_iterator_end(hsi);
     h_set_end(hs);
 
@@ -191,9 +201,21 @@ static inline void rk_free_hashes(h_set_iterator *hsi)
     char *hash;
     h_set_iterator_reset(hsi);
 
-    while ((hash = h_set_iterator_get(hsi, &size)))
+    while ((hash = (char *)h_set_iterator_get(hsi, &size)))
     {
         free(hash);
+    }
+}
+
+static inline void rk_free_sizes(h_set_iterator *hsi)
+{
+    size_t size;
+    char *data;
+    h_set_iterator_reset(hsi);
+
+    while ((data = (char *)h_set_iterator_get(hsi, &size)))
+    {
+        free(data);
     }
 }
 
@@ -225,7 +247,7 @@ rk_search *rk_search_init(rk_data *rkd)
         return NULL;
     }
 
-    rks->patterns_hashes = rk_get_pattern_hashes(rkd->patterns, rkd->pattern_lengths, rkd->count, &rks->patterns_hashes_i);
+    rks->patterns_hashes = rk_get_pattern_hashes(rkd->patterns, rkd->pattern_lengths, rkd->count, rkd->data_length, &rks->patterns_hashes_i);
     if (!rks->patterns_hashes)
     {
         log_info("Error creating pattern hash set!");
@@ -234,7 +256,7 @@ rk_search *rk_search_init(rk_data *rkd)
         return NULL;
     }
 
-    rks->data_hashes = rk_get_data_hashes(rkd->data, rkd->pattern_lengths, rkd->count, &rks->data_hashes_length);
+    rks->data_hashes = rk_get_data_hashes(rkd->data, rkd->data_length, rkd->pattern_lengths, rkd->count, &rks->data_hashes_length);
     if (!rks->data_hashes)
     {
         log_info("Error creating data hash set!");
@@ -280,9 +302,11 @@ void rk_search_end(rk_search *rks)
 //     return NOT_FOUND;
 // }
 
-uint64_t mod_power(int base, int exp)
+static inline uint64_t rk_mod_power(size_t exp)
 {
+    uint64_t base = RP_HASH_BASE;
     uint64_t result = 1;
+
     while (exp > 0)
     {
         if (exp % 2)
