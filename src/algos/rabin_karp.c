@@ -7,7 +7,7 @@ static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t data_len
 static inline void rk_free_hashes(h_set_iterator *hsi);
 static inline void rk_free_sizes(h_set_iterator *hsi);
 static inline uint64_t rk_hash(const char *data, size_t data_length);
-static inline uint64_t rk_mod_power(size_t exp);
+static inline uint64_t rk_base_power(size_t exp);
 static inline uint64_t rk_rolling_hash(uint64_t hash, char old, char new, uint64_t base_power);
 static inline size_t _rk_search(rk_search *rks, const char *data, size_t data_length, size_t *out_length);
 
@@ -186,7 +186,7 @@ static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t data_len
     {
 
         rkd_hashes[i].data_hash = rk_hash(data, *size);
-        rkd_hashes[i].mod_power = rk_mod_power(*size - 1);
+        rkd_hashes[i].mod_power = rk_base_power(*size - 1);
         rkd_hashes[i].data_length = *size;
         i++;
     }
@@ -227,35 +227,31 @@ static inline void rk_free_sizes(h_set_iterator *hsi)
 
 static inline uint64_t rk_hash(const char *data, size_t data_length)
 {
-    uint64_t h = 0;
-    for (size_t i = 0; i < data_length; i++)
+    uint64_t hash = 0;
+
+    for (size_t i = 0; i < data_length; ++i)
     {
-        h = (h * RP_HASH_BASE + (unsigned char)data[i]) % RP_HASH_PRIME;
+        hash = hash * RK_HASH_BASE + data[i];
     }
 
-    return h;
+    return hash;
 }
 
-static inline uint64_t rk_mod_power(size_t exp)
+static inline uint64_t rk_base_power(size_t pattern_length)
 {
-    uint64_t base = RP_HASH_BASE;
-    uint64_t result = 1;
+    uint64_t power = 1;
 
-    while (exp > 0)
+    for (size_t i = 1; i < pattern_length; ++i)
     {
-        if (exp % 2)
-            result = (result * base) % RP_HASH_PRIME;
-
-        base = (base * base) % RP_HASH_PRIME;
-        exp /= 2;
+        power *= RK_HASH_BASE;
     }
 
-    return result;
+    return power;
 }
 
 static inline uint64_t rk_rolling_hash(uint64_t hash, char old, char new, uint64_t base_power)
 {
-    return (RP_HASH_BASE * (hash - (unsigned char)old * base_power % RP_HASH_PRIME) + (unsigned char)new) % RP_HASH_PRIME;
+    return hash * RK_HASH_BASE - base_power * old + new;
 }
 
 /*
