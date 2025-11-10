@@ -21,7 +21,7 @@ typedef struct char_buffer
     size_t size;
 } char_buffer;
 
-typedef struct search_data
+typedef struct bm_search_data
 {
     file_stream *fs_searched;
     line_stream *ls_searched;
@@ -30,19 +30,19 @@ typedef struct search_data
     uint8_t *bad_char_table;
     uint8_t *good_suffix_table;
     char_buffer buffer;
-    int (*bmh_search)(bm_data*);
+    int (*bmh_search)(bm_data *);
     // Cli arguments
     unsigned int flags;
     FILE *out_p;
-} search_data;
+} bm_search_data;
 
+int bm_quiet_search(bm_search_data *sd);
+int bm_list_search(bm_search_data *sd);
+int bm_count_search(bm_search_data *sd);
+int bm_line_number_search(bm_search_data *sd);
+int bm_print_search(bm_search_data *sd);
 
-int quiet_search(search_data *sd);
-int list_search(search_data *sd);
-int count_search(search_data *sd);
-int line_number_search(search_data *sd);
-int print_search(search_data *sd);
+int start_pattern_search(cli_args *args);
 int start_file_search(cli_args *args);
-int start_rec_search(cli_args *args);
 
 #endif

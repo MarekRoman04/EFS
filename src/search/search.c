@@ -2,14 +2,17 @@
 
 static inline char_buffer buffer_alloc(cli_args *args);
 static inline FILE *set_out_path(cli_args *args);
-static inline search_data set_search_data(cli_args *args);
-static inline int (*set_search_function(unsigned int flags))(search_data *sd);
+static inline bm_search_data set_bm_search_data(cli_args *args);
+static inline int (*set_search_function(unsigned int flags))(bm_search_data *sd);
 static inline int set_rdir_stream(rdir_stream **rds, const char *dir_name);
 static inline int read_dir(rdir_stream *rds);
-static inline void free_search_data(search_data *sd);
+static inline void free_bm_search_data(bm_search_data *sd);
 
+static inline int pattern_start_file_search(cli_args *args);
+static inline int pattern_start_rec_search(cli_args *args);
+
+int start_pattern_search(cli_args *args);
 int start_file_search(cli_args *args);
-int start_rec_search(cli_args *args);
 
 // Allocates buffer from args or uses default size (4KB - 16KB)
 static inline char_buffer buffer_alloc(cli_args *args)
@@ -63,9 +66,9 @@ static inline FILE *set_out_path(cli_args *args)
 }
 
 // Sets search data for buffered search
-static inline search_data set_search_data(cli_args *args)
+static inline bm_search_data set_bm_search_data(cli_args *args)
 {
-    search_data sd = {
+    bm_search_data sd = {
         .ls_searched = NULL,
         .buffer = buffer_alloc(args),
         .flags = args->flags,
@@ -108,16 +111,16 @@ static inline search_data set_search_data(cli_args *args)
 }
 
 // Returns search function based on flags
-static inline int (*set_search_function(unsigned int flags))(search_data *sd)
+static inline int (*set_search_function(unsigned int flags))(bm_search_data *sd)
 {
     if (FLAG_SET(flags, FLAG_LIST))
-        return &list_search;
+        return &bm_list_search;
     else if (FLAG_SET(flags, FLAG_COUNT))
-        return &count_search;
+        return &bm_count_search;
     else if (FLAG_SET(flags, FLAG_LINE_NUMBER))
-        return &line_number_search;
+        return &bm_line_number_search;
     else
-        return &print_search;
+        return &bm_print_search;
 }
 
 // Sets directory used in rdir stream
@@ -161,7 +164,7 @@ static inline int read_dir(rdir_stream *rds)
     return read_val;
 }
 
-static inline void free_search_data(search_data *sd)
+static inline void free_bm_search_data(bm_search_data *sd)
 {
     if (sd->out_p != stdout && sd->out_p != stderr)
         fclose(sd->out_p);
@@ -176,10 +179,10 @@ static inline void free_search_data(search_data *sd)
     free(sd->pattern);
 }
 
-int start_file_search(cli_args *args)
+static inline int pattern_start_file_search(cli_args *args)
 {
     int ret_val = 1;
-    search_data sd = set_search_data(args);
+    bm_search_data sd = set_bm_search_data(args);
 
     // Quiet search handled separately to handle early end
     if (FLAG_SET(sd.flags, FLAG_QUIET))
@@ -189,7 +192,7 @@ int start_file_search(cli_args *args)
             if (fs_open_file(sd.fs_searched, *(current)))
                 continue;
 
-            if (!quiet_search(&sd))
+            if (!bm_quiet_search(&sd))
             {
                 ret_val = 0;
                 break;
@@ -198,7 +201,7 @@ int start_file_search(cli_args *args)
     }
     else
     {
-        int (*search_function)(search_data *sd) = set_search_function(sd.flags);
+        int (*search_function)(bm_search_data *sd) = set_search_function(sd.flags);
 
         for (char **current = args->files; current < args->files + args->file_count; current++)
         {
@@ -210,16 +213,16 @@ int start_file_search(cli_args *args)
         }
     }
 
-    free_search_data(&sd);
+    free_bm_search_data(&sd);
     return ret_val;
 }
 
-int start_rec_search(cli_args *args)
+static inline int pattern_start_rec_search(cli_args *args)
 {
     int ret_val = 1;
     struct stat file_stat;
     rdir_stream *rds = NULL;
-    search_data sd = set_search_data(args);
+    bm_search_data sd = set_bm_search_data(args);
 
     // Quiet search handled separately to handle early end
     if (FLAG_SET(sd.flags, FLAG_QUIET))
@@ -242,7 +245,7 @@ int start_rec_search(cli_args *args)
                     if (fs_open_file(sd.fs_searched, rds->entry_path))
                         continue;
 
-                    if (!quiet_search(&sd))
+                    if (!bm_quiet_search(&sd))
                     {
                         ret_val = 0;
                         break;
@@ -254,7 +257,7 @@ int start_rec_search(cli_args *args)
                 if (fs_open_file(sd.fs_searched, *(current)))
                     continue;
 
-                if (!quiet_search(&sd))
+                if (!bm_quiet_search(&sd))
                 {
                     ret_val = 0;
                     break;
@@ -264,7 +267,7 @@ int start_rec_search(cli_args *args)
     }
     else
     {
-        int (*search_function)(search_data *sd) = set_search_function(sd.flags);
+        int (*search_function)(bm_search_data *sd) = set_search_function(sd.flags);
 
         for (char **current = args->files; current < args->files + args->file_count; current++)
         {
@@ -302,6 +305,19 @@ int start_rec_search(cli_args *args)
     if (rds)
         rds_end(rds);
 
-    free_search_data(&sd);
+    free_bm_search_data(&sd);
     return ret_val;
+}
+
+int start_pattern_search(cli_args *args)
+{
+    if (FLAG_SET(args->flags, FLAG_RECURSIVE))
+        return pattern_start_rec_search(args);
+    else
+        return pattern_start_file_search(args);
+}
+
+int start_file_search(cli_args *args)
+{
+    return -1;
 }

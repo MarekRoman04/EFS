@@ -1,17 +1,17 @@
 #include "search.h"
 
-static inline bm_data set_bmh_search(search_data *sd);
-static inline bm_data set_bmh_search_line(search_data *sd);
-static inline void ls_init(search_data *sd);
+static inline bm_data set_bmh_search(bm_search_data *sd);
+static inline bm_data set_bmh_search_line(bm_search_data *sd);
+static inline void ls_init(bm_search_data *sd);
 static inline int read_line(const char *f_path, line_stream *ls, bm_data *bmd);
-int quiet_search(search_data *sd);
-int list_search(search_data *sd);
-int count_search(search_data *sd);
-int line_number_search(search_data *sd);
-int print_search(search_data *sd);
+int bm_quiet_search(bm_search_data *sd);
+int bm_list_search(bm_search_data *sd);
+int bm_count_search(bm_search_data *sd);
+int bm_line_number_search(bm_search_data *sd);
+int bm_print_search(bm_search_data *sd);
 
 // Initializes bmd for buffered search
-static inline bm_data set_bmh_search(search_data *sd)
+static inline bm_data set_bmh_search(bm_search_data *sd)
 {
     bm_data bmd = {
         .bad_char_table = sd->bad_char_table,
@@ -28,7 +28,7 @@ static inline bm_data set_bmh_search(search_data *sd)
 }
 
 // Initializes bmd for line search
-static inline bm_data set_bmh_search_line(search_data *sd)
+static inline bm_data set_bmh_search_line(bm_search_data *sd)
 {
     bm_data bmd = {
         .bad_char_table = sd->bad_char_table,
@@ -43,7 +43,7 @@ static inline bm_data set_bmh_search_line(search_data *sd)
 }
 
 // Initializes line stream
-static inline void ls_init(search_data *sd)
+static inline void ls_init(bm_search_data *sd)
 {
     if (sd->ls_searched)
     {
@@ -76,7 +76,7 @@ static inline int read_line(const char *f_path, line_stream *ls, bm_data *bmd)
     return read_val;
 }
 
-int quiet_search(search_data *sd)
+int bm_quiet_search(bm_search_data *sd)
 {
     // Proccess input line by line if searching for words
     if (FLAG_SET(sd->flags, FLAG_WORD))
@@ -105,7 +105,7 @@ int quiet_search(search_data *sd)
     return 1;
 }
 
-int list_search(search_data *sd)
+int bm_list_search(bm_search_data *sd)
 {
     int ret_val = 1;
     // Proccess input line by line if searching for words
@@ -145,7 +145,7 @@ int list_search(search_data *sd)
     return ret_val;
 }
 
-int count_search(search_data *sd)
+int bm_count_search(bm_search_data *sd)
 {
     int ret_val = 1;
     size_t count = 0;
@@ -166,7 +166,7 @@ int count_search(search_data *sd)
     return ret_val;
 }
 
-int line_number_search(search_data *sd)
+int bm_line_number_search(bm_search_data *sd)
 {
     int ret_val = 1;
     size_t line = 0;
@@ -188,7 +188,7 @@ int line_number_search(search_data *sd)
     return ret_val;
 }
 
-int print_search(search_data *sd)
+int bm_print_search(bm_search_data *sd)
 {
     int ret_val = 1;
     ls_init(sd);
