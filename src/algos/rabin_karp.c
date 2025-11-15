@@ -1,8 +1,8 @@
 #include <algo.h>
 
 static inline h_set *rk_get_pattern_set(const char **patterns, size_t *pattern_lengths, size_t count);
-static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern_lengths, size_t count,
-                                           size_t data_length, h_set_iterator **out_iterator);
+static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern_lengths,
+                                           size_t count, h_set_iterator **out_iterator);
 static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t data_length, size_t *patern_lengths, size_t count, size_t *out_length);
 static inline void rk_free_hashes(h_set_iterator *hsi);
 static inline void rk_free_sizes(h_set_iterator *hsi);
@@ -15,6 +15,7 @@ rk_search *rk_search_init(rk_data *rkd);
 int rk_count(rk_search *rks, const char *data, size_t data_length);
 int rk_find(rk_search *rks, const char *data, size_t data_length);
 int rk_find_w(rk_search *rks, const char *data, size_t data_length);
+void rk_rehash_data(rk_search *rks, const char *data, size_t data_length);
 void rk_search_end(rk_search *rks);
 
 // Creates hash set from paterns
@@ -41,8 +42,8 @@ static inline h_set *rk_get_pattern_set(const char **patterns, size_t *pattern_l
 }
 
 // Creates hash set containing hashed patterns and iterator to it
-static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern_lengths, size_t count,
-                                           size_t data_length, h_set_iterator **out_iterator)
+static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern_lengths,
+                                           size_t count, h_set_iterator **out_iterator)
 {
     h_set *hs = h_set_init();
     if (!hs)
@@ -70,9 +71,6 @@ static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern
 
     for (size_t i = 0; i < count; i++)
     {
-        if (patern_lengths[i] > data_length)
-            continue;
-
         if (!hash)
         {
             hash = malloc(sizeof(uint64_t));
@@ -104,6 +102,7 @@ static inline h_set *rk_get_pattern_hashes(const char **patterns, size_t *patern
     if (hash)
         free(hash);
 
+    h_set_iterator_reset(*out_iterator);
     return hs;
 }
 
@@ -136,9 +135,6 @@ static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t data_len
 
     for (size_t i = 0; i < count; i++)
     {
-        if (patern_lengths[i] > data_length)
-            continue;
-
         if (!size)
         {
             size = malloc(sizeof(size_t));
@@ -182,17 +178,19 @@ static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t data_len
 
     size_t i = 0;
     size_t length;
+    h_set_iterator_reset(hsi);
+
     while ((size = (size_t *)h_set_iterator_get(hsi, &length)))
     {
+        if (*size < data_length)
+            rkd_hashes[i].data_hash = rk_hash(data, *size);
 
-        rkd_hashes[i].data_hash = rk_hash(data, *size);
         rkd_hashes[i].mod_power = rk_base_power(*size - 1);
         rkd_hashes[i].data_length = *size;
         i++;
     }
 
     *out_length = i;
-    printf("Written: %lu\n", i);
 
     rk_free_sizes(hsi);
     h_set_iterator_end(hsi);
@@ -264,11 +262,46 @@ static inline size_t _rk_search(rk_search *rks, const char *data, size_t data_le
     {
         for (size_t j = 0; j < rks->data_hashes_length; j++)
         {
-            rk_data_hash *rdh = &rks->data_hashes[i];
+            rk_data_hash *rdh = &rks->data_hashes[j];
             if (i < rdh->data_length)
                 continue;
 
-            rdh->data_hash = rk_rolling_hash(rdh->data_hash, data[i - rdh->data_length], data[i], rdh->mod_power);
+            // char old = data[i - rdh->data_length];
+            // char new = data[i];
+
+            // if (i != rdh->data_length)
+            //     rdh->data_hash = rk_rolling_hash(rdh->data_hash, old, new, rdh->mod_power);
+
+            /*
+             *---TO-DO---
+             * Fix rolling hash computation and switch to rolling hashes
+             */
+            uint64_t new_hash = rk_hash(data + i - rdh->data_length, rdh->data_length);
+
+            if (!h_set_has(rks->patterns_hashes, (char *)&new_hash, sizeof(rdh->data_hash)))
+            {
+                *out_length = rdh->data_length;
+                return i - rdh->data_length;
+            }
+        }
+    }
+
+    return NOT_FOUND;
+}
+
+static inline size_t _rk_search_i(rk_search *rks, const char *data, size_t data_length, size_t *out_length)
+{
+    for (size_t i = 0; i < data_length; i++)
+    {
+        for (size_t j = 0; j < rks->data_hashes_length; j++)
+        {
+            rk_data_hash *rdh = &rks->data_hashes[j];
+            if (i < rdh->data_length)
+                continue;
+
+            char old = (char)tolower((unsigned char)data[i - rdh->data_length]);
+            char new = (char)tolower((unsigned char)data[i]);
+            rdh->data_hash = rk_rolling_hash(rdh->data_hash, old, new, rdh->mod_power);
 
             if (!h_set_has(rks->patterns_hashes, (char *)&rdh->data_hash, sizeof(rdh->data_hash)))
             {
@@ -298,7 +331,7 @@ rk_search *rk_search_init(rk_data *rkd)
         return NULL;
     }
 
-    rks->patterns_hashes = rk_get_pattern_hashes(rkd->patterns, rkd->pattern_lengths, rkd->count, rkd->data_length, &rks->patterns_hashes_i);
+    rks->patterns_hashes = rk_get_pattern_hashes(rkd->patterns, rkd->pattern_lengths, rkd->count, &rks->patterns_hashes_i);
     if (!rks->patterns_hashes)
     {
         log_info("Error creating pattern hash set!");
@@ -324,6 +357,7 @@ rk_search *rk_search_init(rk_data *rkd)
 
 int rk_count(rk_search *rks, const char *data, size_t data_length)
 {
+    // size_t (*search)(rk_search *, const char *, size_t, size_t *) = rks->ignore_case ? &_rk_search_i : &_rk_search;
     size_t out_length;
     int found = 0;
     size_t data_loc = 0;
@@ -343,12 +377,14 @@ int rk_count(rk_search *rks, const char *data, size_t data_length)
 
 int rk_find(rk_search *rks, const char *data, size_t data_length)
 {
+    // size_t (*search)(rk_search *, const char *, size_t, size_t *) = rks->ignore_case ? &_rk_search_i : &_rk_search;
     size_t out_length;
     return _rk_search(rks, data, data_length, &out_length) == NOT_FOUND ? 1 : 0;
 }
 
 int rk_find_w(rk_search *rks, const char *data, size_t data_length)
 {
+    // size_t (*search)(rk_search *, const char *, size_t, size_t *) = rks->ignore_case ? &_rk_search_i : &_rk_search;
     size_t rk_result;
     size_t out_length;
     size_t data_loc = 0;
@@ -368,6 +404,16 @@ int rk_find_w(rk_search *rks, const char *data, size_t data_length)
     }
 
     return 1;
+}
+
+void rk_rehash_data(rk_search *rks, const char *data, size_t data_length)
+{
+    for (size_t i = 0; i < rks->data_hashes_length; i++)
+    {
+        rk_data_hash *hash = &rks->data_hashes[i];
+        if (hash->data_length < data_length)
+            hash->data_hash = rk_hash(data, hash->data_length);
+    }
 }
 
 void rk_search_end(rk_search *rks)

@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <assert.h>
+
 #include "log.h"
 
 #define NOT_FOUND ((size_t)-1)
@@ -178,7 +180,7 @@ struct rk_data_hash
 
 /*
  * Initializes hash sets and computes hashes for given patterns, required in rk search functions
- * expects all pattern lengths to be less or equal to data length
+ * patterns longer than data length have reserved memory for data hashes
  */
 rk_search *rk_search_init(rk_data *rkd);
 /*
@@ -188,13 +190,18 @@ rk_search *rk_search_init(rk_data *rkd);
 int rk_count(rk_search *rks, const char *data, size_t data_length);
 /*
  * Returns 0 if data contains any pattern from given set
- *
  */
 int rk_find(rk_search *rks, const char *data, size_t data_length);
 /*
  * Returns 0 if data contains any word from given set
  */
 int rk_find_w(rk_search *rks, const char *data, size_t data_length);
+/*
+ * Generates new rolling hashes for given data,
+ * hashes longer than data are not changed,
+ * expects patterns to remain the same
+ */
+void rk_rehash_data(rk_search *rks, const char *data, size_t data_length);
 /*
  * Frees memory used by rk search
  */

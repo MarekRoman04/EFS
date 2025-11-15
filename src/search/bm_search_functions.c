@@ -10,6 +10,11 @@ int bm_count_search(bm_search_data *sd);
 int bm_line_number_search(bm_search_data *sd);
 int bm_print_search(bm_search_data *sd);
 
+/*
+ *---TO-DO---
+ *Move bm_data to bm_search_data struct
+ */
+
 // Initializes bmd for buffered search
 static inline bm_data set_bmh_search(bm_search_data *sd)
 {

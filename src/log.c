@@ -53,19 +53,38 @@ void log_errno_impl(int level, const char *path, const char *file, int line)
     }
 }
 
-void* log_malloc(size_t size, const char *file, int line) {
-    #undef malloc
+void *log_malloc(size_t size, const char *file, int line)
+{
+#undef malloc
     void *p = malloc(size);
-    #define malloc(size) log_malloc(size, __FILE__, __LINE__)
+#define malloc(size) log_malloc(size, __FILE__, __LINE__)
     printf("malloc(%zu) at %s:%d -> %p\n", size, file, line, p);
     return p;
 }
 
-void* log_calloc(size_t elems, size_t size, const char *file, int line)
+void *log_calloc(size_t elems, size_t size, const char *file, int line)
 {
-    #undef calloc
+#undef calloc
     void *p = calloc(elems, size);
-    #define calloc(num, size) log_calloc(num, size, __FILE__, __LINE__)
+#define calloc(num, size) log_calloc(num, size, __FILE__, __LINE__)
     printf("calloc(%zu) at %s:%d -> %p\n", elems * size, file, line, p);
     return p;
+}
+
+void *log_realloc(void *ptr, size_t size, const char *file, int line)
+{
+#undef realloc
+    printf("realloc(%p %zu) ", ptr, size);
+    void *p = realloc(ptr, size);
+#define realloc(ptr, size) log_realloc(ptr, size, __FILE__, __LINE__)
+    printf("at %s:%d -> %p\n", file, line, p);
+    return p;
+}
+
+void log_free(void *ptr, const char *file, int line)
+{
+#undef free
+    printf("free(%p) at %s:%d\n", ptr, file, line);
+    free(ptr);
+#define free(ptr) log_free(ptr, __FILE__, __LINE__)
 }
