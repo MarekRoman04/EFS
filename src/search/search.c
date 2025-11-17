@@ -288,8 +288,10 @@ static inline rk_patterns rk_search_data_get_patterns(line_stream *ls, size_t ma
 // Returns rk search function based on flags
 static inline int (*rk_set_search_function(unsigned int flags))(rk_search_data *)
 {
-    if (FLAG_SET(flags, FLAG_LIST))
-        return NULL;
+    if (FLAG_SET(flags, FLAG_QUIET))
+        return &rk_quiet_search;
+    else if (FLAG_SET(flags, FLAG_LIST))
+        return &rk_list_search;
     else if (FLAG_SET(flags, FLAG_COUNT))
         return &rk_count_search;
     else if (FLAG_SET(flags, FLAG_LINE_NUMBER))
@@ -451,22 +453,15 @@ static inline int file_start_file_search(cli_args *args)
     int ret_val = 1;
     rk_search_data rks = rk_set_search_data(args);
 
-    if (FLAG_SET(rks.flags, FLAG_QUIET))
-    {
-        log_error("Not implemented!");
-    }
-    else
-    {
-        int (*search_function)(rk_search_data *) = rk_set_search_function(rks.flags);
+    int (*search_function)(rk_search_data *) = rk_set_search_function(rks.flags);
 
-        for (char **current = args->files; current < args->files + args->file_count; current++)
-        {
-            if (fs_open_file(rks.fs_searched, *(current)))
-                continue;
+    for (char **current = args->files; current < args->files + args->file_count; current++)
+    {
+        if (fs_open_file(rks.fs_searched, *(current)))
+            continue;
 
-            if (!search_function(&rks))
-                ret_val = 0;
-        }
+        if (!search_function(&rks))
+            ret_val = 0;
     }
 
     rk_free_search_data(&rks);
@@ -476,7 +471,43 @@ static inline int file_start_file_search(cli_args *args)
 static inline int file_start_rec_search(cli_args *args)
 {
     int ret_val = 1;
+    struct stat file_stat;
+    rdir_stream *rds = NULL;
     rk_search_data rks = rk_set_search_data(args);
+
+    int (*search_function)(rk_search_data *) = rk_set_search_function(rks.flags);
+
+    for (char **current = args->files; current < args->files + args->file_count; current++)
+    {
+        if (stat(*(current), &file_stat))
+        {
+            log_errno(0, *(current));
+            continue;
+        }
+
+        if (S_ISDIR(file_stat.st_mode))
+        {
+            if (set_rdir_stream(&rds, *(current)))
+                continue;
+
+            while (!read_dir(rds))
+            {
+                if (fs_open_file(rks.fs_searched, rds->entry_path))
+                    continue;
+
+                if (!search_function(&rks))
+                    ret_val = 0;
+            }
+        }
+        else
+        {
+            if (fs_open_file(rks.fs_searched, *(current)))
+                continue;
+
+            if (!search_function(&rks))
+                ret_val = 0;
+        }
+    }
 
     rk_free_search_data(&rks);
     return ret_val;

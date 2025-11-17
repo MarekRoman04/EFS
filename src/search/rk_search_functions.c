@@ -1,8 +1,47 @@
 #include <search.h>
 
+int rk_quiet_search(rk_search_data *rsd);
+int rk_list_search(rk_search_data *rsd);
 int rk_count_search(rk_search_data *rsd);
 int rk_line_number_search(rk_search_data *rsd);
 int rk_print_search(rk_search_data *rsd);
+
+int rk_quiet_search(rk_search_data *rsd)
+{
+    ls_change_file(rsd->ls_searched, rsd->fs_searched->fp);
+
+    int read_val;
+    while (!(read_val = ls_read(rsd->ls_searched)))
+    {
+        rk_rehash_data(rsd->rks, rsd->ls_searched->line, rsd->ls_searched->line_length);
+
+        if ((!rsd->rk_search_function(rsd->rks, rsd->ls_searched->line, rsd->ls_searched->line_length)) ^ FLAG_SET(rsd->flags, FLAG_INVERT))
+            return 0;
+    }
+
+    return 1;
+}
+
+int rk_list_search(rk_search_data *rsd)
+{
+    int ret_val = 1;
+    ls_change_file(rsd->ls_searched, rsd->fs_searched->fp);
+
+    int read_val;
+    while (!(read_val = ls_read(rsd->ls_searched)))
+    {
+        rk_rehash_data(rsd->rks, rsd->ls_searched->line, rsd->ls_searched->line_length);
+
+        if ((!rsd->rk_search_function(rsd->rks, rsd->ls_searched->line, rsd->ls_searched->line_length)) ^ FLAG_SET(rsd->flags, FLAG_INVERT))
+        {
+            ret_val = 0;
+            fprintf(rsd->out_p, "%s\n", rsd->fs_searched->f_path);
+            break;
+        }
+    }
+
+    return ret_val;
+}
 
 int rk_count_search(rk_search_data *rsd)
 {

@@ -64,6 +64,8 @@ int bm_count_search(bm_search_data *sd);
 int bm_line_number_search(bm_search_data *sd);
 int bm_print_search(bm_search_data *sd);
 
+int rk_quiet_search(rk_search_data *rsd);
+int rk_list_search(rk_search_data *rsd);
 int rk_count_search(rk_search_data *rsd);
 int rk_line_number_search(rk_search_data *rsd);
 int rk_print_search(rk_search_data *rsd);
