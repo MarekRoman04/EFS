@@ -13,7 +13,11 @@ int rk_quiet_search(rk_search_data *rsd)
     int read_val;
     while (!(read_val = ls_read(rsd->ls_searched)))
     {
-        if ((!rsd->rk_search_function(rsd->rks, rsd->ls_searched->line, rsd->ls_searched->line_length)) ^ FLAG_SET(rsd->flags, FLAG_INVERT))
+        if ((!rsd->rk_search_function(rsd->rks,
+                                      rsd->ls_searched->line,
+                                      rsd->ls_searched->line_length,
+                                      FLAG_SET(rsd->flags, FLAG_IGNORE_CASE))) ^
+            FLAG_SET(rsd->flags, FLAG_INVERT))
             return 0;
     }
 
@@ -28,7 +32,11 @@ int rk_list_search(rk_search_data *rsd)
     int read_val;
     while (!(read_val = ls_read(rsd->ls_searched)))
     {
-        if ((!rsd->rk_search_function(rsd->rks, rsd->ls_searched->line, rsd->ls_searched->line_length)) ^ FLAG_SET(rsd->flags, FLAG_INVERT))
+        if ((!rsd->rk_search_function(rsd->rks,
+                                      rsd->ls_searched->line,
+                                      rsd->ls_searched->line_length,
+                                      FLAG_SET(rsd->flags, FLAG_IGNORE_CASE))) ^
+            FLAG_SET(rsd->flags, FLAG_INVERT))
         {
             ret_val = 0;
             fprintf(rsd->out_p, "%s\n", rsd->fs_searched->f_path);
@@ -48,7 +56,11 @@ int rk_count_search(rk_search_data *rsd)
     int read_val;
     while (!(read_val = ls_read(rsd->ls_searched)))
     {
-        if (!rsd->rk_search_function(rsd->rks, rsd->ls_searched->line, rsd->ls_searched->line_length) ^ FLAG_SET(rsd->flags, FLAG_INVERT))
+        if (!rsd->rk_search_function(rsd->rks,
+                                     rsd->ls_searched->line,
+                                     rsd->ls_searched->line_length,
+                                     FLAG_SET(rsd->flags, FLAG_IGNORE_CASE)) ^
+            FLAG_SET(rsd->flags, FLAG_INVERT))
         {
             ret_val = 0;
             count++;
@@ -73,12 +85,15 @@ int rk_line_number_search(rk_search_data *rsd)
     while (!(read_val = ls_read(rsd->ls_searched)))
     {
         line++;
-        if (!rsd->rk_search_function(rsd->rks, rsd->ls_searched->line, rsd->ls_searched->line_length) ^ FLAG_SET(rsd->flags, FLAG_INVERT))
+        if (!rsd->rk_search_function(rsd->rks,
+                                     rsd->ls_searched->line,
+                                     rsd->ls_searched->line_length,
+                                     FLAG_SET(rsd->flags, FLAG_IGNORE_CASE)) ^
+            FLAG_SET(rsd->flags, FLAG_INVERT))
         {
             ret_val = 0;
             fprintf(rsd->out_p, "%s:%ld:", rsd->fs_searched->f_path, line);
             fwrite(rsd->ls_searched->line, 1, rsd->ls_searched->line_length, rsd->out_p);
-            fprintf(rsd->out_p, "\n");
         }
     }
 
@@ -96,12 +111,14 @@ int rk_print_search(rk_search_data *rsd)
     int read_val;
     while (!(read_val = ls_read(rsd->ls_searched)))
     {
-        if (!rsd->rk_search_function(rsd->rks, rsd->ls_searched->line, rsd->ls_searched->line_length) ^ FLAG_SET(rsd->flags, FLAG_INVERT))
+        if (!rsd->rk_search_function(rsd->rks,
+                                     rsd->ls_searched->line,
+                                     rsd->ls_searched->line_length, FLAG_SET(rsd->flags, FLAG_IGNORE_CASE)) ^
+            FLAG_SET(rsd->flags, FLAG_INVERT))
         {
             ret_val = 0;
             fprintf(rsd->out_p, "%s:", rsd->fs_searched->f_path);
             fwrite(rsd->ls_searched->line, 1, rsd->ls_searched->line_length, rsd->out_p);
-            fprintf(rsd->out_p, "\n");
         }
     }
 

@@ -7,14 +7,16 @@ static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t data_len
 static inline void rk_free_hashes(h_set_iterator *hsi);
 static inline void rk_free_sizes(h_set_iterator *hsi);
 static inline uint64_t rk_hash(const char *data, size_t data_length);
+static inline uint64_t rk_hash_i(const char *data, size_t data_length);
 static inline uint64_t rk_base_power(size_t exp);
 static inline uint64_t rk_rolling_hash(uint64_t hash, unsigned char old, unsigned char new, uint64_t base_power);
 static inline size_t _rk_search(rk_search *rks, const char *data, size_t data_length, size_t *out_length);
+static inline size_t _rk_search_i(rk_search *rks, const char *data, size_t data_length, size_t *out_length);
 
 rk_search *rk_search_init(rk_data *rkd);
-int rk_count(rk_search *rks, const char *data, size_t data_length);
-int rk_find(rk_search *rks, const char *data, size_t data_length);
-int rk_find_w(rk_search *rks, const char *data, size_t data_length);
+int rk_count(rk_search *rks, const char *data, size_t data_length, int ignore_case);
+int rk_find(rk_search *rks, const char *data, size_t data_length, int ignore_case);
+int rk_find_w(rk_search *rks, const char *data, size_t data_length, int ignore_case);
 void rk_search_end(rk_search *rks);
 
 // Creates hash set from paterns
@@ -228,7 +230,20 @@ static inline uint64_t rk_hash(const char *data, size_t data_length)
 
     for (size_t i = 0; i < data_length; ++i)
     {
-        hash = (hash * RK_BASE + data[i]) % RK_MOD;
+        hash = (hash * RK_BASE + (unsigned char)data[i]) % RK_MOD;
+    }
+
+    return hash;
+}
+
+static inline uint64_t rk_hash_i(const char *data, size_t data_length)
+{
+    uint64_t hash = 0;
+
+    for (size_t i = 0; i < data_length; ++i)
+    {
+        unsigned char c = tolower((int) data[i]);
+        hash = (hash * RK_BASE + c) % RK_MOD;
     }
 
     return hash;
@@ -288,6 +303,41 @@ static inline size_t _rk_search(rk_search *rks, const char *data, size_t data_le
     return NOT_FOUND;
 }
 
+/*
+ * Returns location of pattern ignoring case from given set in given data,
+ * if not found returns NOT_FOUND, sets out_length to length of matched pattern
+ */
+static inline size_t _rk_search_i(rk_search *rks, const char *data, size_t data_length, size_t *out_length)
+{
+    for (size_t i = 1; i < data_length + 1; i++)
+    {
+        for (size_t j = 0; j < rks->data_hashes_length; j++)
+        {
+            rk_data_hash *rdh = &rks->data_hashes[j];
+            if (i < rdh->data_length)
+                continue;
+
+            if (i == rdh->data_length)
+                rdh->data_hash = rk_hash_i(data, rdh->data_length);
+
+            else
+            {
+                unsigned char old = tolower((int)data[i - rdh->data_length - 1]);
+                unsigned char new = tolower((int)data[i - 1]);
+                rdh->data_hash = rk_rolling_hash(rdh->data_hash, old, new, rdh->mod_power);
+            }
+
+            if (!h_set_has(rks->patterns_hashes, (char *)&rdh->data_hash, sizeof(rdh->data_hash)))
+            {
+                *out_length = rdh->data_length;
+                return i - rdh->data_length;
+            }
+        }
+    }
+
+    return NOT_FOUND;
+}
+
 rk_search *rk_search_init(rk_data *rkd)
 {
     rk_search *rks = malloc(sizeof(rk_search));
@@ -329,9 +379,9 @@ rk_search *rk_search_init(rk_data *rkd)
     return rks;
 }
 
-int rk_count(rk_search *rks, const char *data, size_t data_length)
+int rk_count(rk_search *rks, const char *data, size_t data_length, int ignore_case)
 {
-    // size_t (*search)(rk_search *, const char *, size_t, size_t *) = rks->ignore_case ? &_rk_search_i : &_rk_search;
+    size_t (*search)(rk_search *, const char *, size_t, size_t *) = ignore_case ? &_rk_search_i : &_rk_search;
     size_t out_length;
     int found = 0;
     size_t data_loc = 0;
@@ -339,7 +389,7 @@ int rk_count(rk_search *rks, const char *data, size_t data_length)
     while (data_loc < data_length)
     {
         size_t loc;
-        if ((loc = _rk_search(rks, data, data_length, &out_length)) == NOT_FOUND)
+        if ((loc = search(rks, data, data_length, &out_length)) == NOT_FOUND)
             return found;
 
         found++;
@@ -349,23 +399,23 @@ int rk_count(rk_search *rks, const char *data, size_t data_length)
     return found;
 }
 
-int rk_find(rk_search *rks, const char *data, size_t data_length)
+int rk_find(rk_search *rks, const char *data, size_t data_length, int ignore_case)
 {
-    // size_t (*search)(rk_search *, const char *, size_t, size_t *) = rks->ignore_case ? &_rk_search_i : &_rk_search;
+    size_t (*search)(rk_search *, const char *, size_t, size_t *) = ignore_case ? &_rk_search_i : &_rk_search;
     size_t out_length;
-    return _rk_search(rks, data, data_length, &out_length) == NOT_FOUND ? 1 : 0;
+    return search(rks, data, data_length, &out_length) == NOT_FOUND ? 1 : 0;
 }
 
-int rk_find_w(rk_search *rks, const char *data, size_t data_length)
+int rk_find_w(rk_search *rks, const char *data, size_t data_length, int ignore_case)
 {
-    // size_t (*search)(rk_search *, const char *, size_t, size_t *) = rks->ignore_case ? &_rk_search_i : &_rk_search;
+    size_t (*search)(rk_search *, const char *, size_t, size_t *) = ignore_case ? &_rk_search_i : &_rk_search;
     size_t rk_result;
     size_t out_length;
     size_t data_loc = 0;
 
     while (data_loc < data_length)
     {
-        rk_result = _rk_search(rks, data, data_length, &out_length);
+        rk_result = search(rks, data, data_length, &out_length);
         if (rk_result == NOT_FOUND)
             return 1;
 

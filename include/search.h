@@ -52,7 +52,7 @@ typedef struct rk_search_data
     line_stream *ls_searched;
     rk_patterns patterns;
     rk_search *rks;
-    int (*rk_search_function)(rk_search *, const char *, size_t);
+    int (*rk_search_function)(rk_search *, const char *, size_t, int);
     // Cli arguments
     unsigned int flags;
     FILE *out_p;

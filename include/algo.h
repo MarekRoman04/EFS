@@ -188,15 +188,15 @@ rk_search *rk_search_init(rk_data *rkd);
  * Returns number of occurences of patterns in data,
  * patterns starting at same position are counted only once
  */
-int rk_count(rk_search *rks, const char *data, size_t data_length);
+int rk_count(rk_search *rks, const char *data, size_t data_length, int ignore_case);
 /*
  * Returns 0 if data contains any pattern from given set
  */
-int rk_find(rk_search *rks, const char *data, size_t data_length);
+int rk_find(rk_search *rks, const char *data, size_t data_length, int ignore_case);
 /*
  * Returns 0 if data contains any word from given set
  */
-int rk_find_w(rk_search *rks, const char *data, size_t data_length);
+int rk_find_w(rk_search *rks, const char *data, size_t data_length, int ignore_case);
 /*
  * Generates new rolling hashes for given data,
  * hashes longer than data are not changed,
