@@ -147,7 +147,8 @@ int bm_find_w(bm_data *bmd);
 //----RK SEARCH DEFINITIONS--------
 //---------------------------------
 
-#define RK_HASH_BASE 1315423911ULL
+#define RK_BASE 256ULL
+#define RK_MOD 1000000007ULL
 
 typedef struct rk_data rk_data;
 typedef struct rk_search rk_search;

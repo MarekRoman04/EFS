@@ -8,14 +8,13 @@ static inline void rk_free_hashes(h_set_iterator *hsi);
 static inline void rk_free_sizes(h_set_iterator *hsi);
 static inline uint64_t rk_hash(const char *data, size_t data_length);
 static inline uint64_t rk_base_power(size_t exp);
-static inline uint64_t rk_rolling_hash(uint64_t hash, char old, char new, uint64_t base_power);
+static inline uint64_t rk_rolling_hash(uint64_t hash, unsigned char old, unsigned char new, uint64_t base_power);
 static inline size_t _rk_search(rk_search *rks, const char *data, size_t data_length, size_t *out_length);
 
 rk_search *rk_search_init(rk_data *rkd);
 int rk_count(rk_search *rks, const char *data, size_t data_length);
 int rk_find(rk_search *rks, const char *data, size_t data_length);
 int rk_find_w(rk_search *rks, const char *data, size_t data_length);
-void rk_rehash_data(rk_search *rks, const char *data, size_t data_length);
 void rk_search_end(rk_search *rks);
 
 // Creates hash set from paterns
@@ -185,7 +184,7 @@ static inline rk_data_hash *rk_get_data_hashes(const char *data, size_t data_len
         if (*size < data_length)
             rkd_hashes[i].data_hash = rk_hash(data, *size);
 
-        rkd_hashes[i].mod_power = rk_base_power(*size - 1);
+        rkd_hashes[i].mod_power = rk_base_power(*size);
         rkd_hashes[i].data_length = *size;
         i++;
     }
@@ -229,7 +228,7 @@ static inline uint64_t rk_hash(const char *data, size_t data_length)
 
     for (size_t i = 0; i < data_length; ++i)
     {
-        hash = hash * RK_HASH_BASE + data[i];
+        hash = (hash * RK_BASE + data[i]) % RK_MOD;
     }
 
     return hash;
@@ -241,15 +240,17 @@ static inline uint64_t rk_base_power(size_t pattern_length)
 
     for (size_t i = 1; i < pattern_length; ++i)
     {
-        power *= RK_HASH_BASE;
+        power = (power * RK_BASE) % RK_MOD;
     }
 
     return power;
 }
 
-static inline uint64_t rk_rolling_hash(uint64_t hash, char old, char new, uint64_t base_power)
+static inline uint64_t rk_rolling_hash(uint64_t hash, unsigned char old, unsigned char new, uint64_t base_power)
 {
-    return hash * RK_HASH_BASE - base_power * old + new;
+    hash = (hash + RK_MOD - (old * base_power) % RK_MOD) % RK_MOD;
+    hash = (hash * RK_BASE + new) % RK_MOD;
+    return hash;
 }
 
 /*
@@ -258,7 +259,7 @@ static inline uint64_t rk_rolling_hash(uint64_t hash, char old, char new, uint64
  */
 static inline size_t _rk_search(rk_search *rks, const char *data, size_t data_length, size_t *out_length)
 {
-    for (size_t i = 0; i < data_length; i++)
+    for (size_t i = 1; i < data_length + 1; i++)
     {
         for (size_t j = 0; j < rks->data_hashes_length; j++)
         {
@@ -266,42 +267,15 @@ static inline size_t _rk_search(rk_search *rks, const char *data, size_t data_le
             if (i < rdh->data_length)
                 continue;
 
-            // char old = data[i - rdh->data_length];
-            // char new = data[i];
+            if (i == rdh->data_length)
+                rdh->data_hash = rk_hash(data, rdh->data_length);
 
-            // if (i != rdh->data_length)
-            //     rdh->data_hash = rk_rolling_hash(rdh->data_hash, old, new, rdh->mod_power);
-
-            /*
-             *---TO-DO---
-             * Fix rolling hash computation and switch to rolling hashes
-             */
-            uint64_t new_hash = rk_hash(data + i - rdh->data_length, rdh->data_length);
-
-            if (!h_set_has(rks->patterns_hashes, (char *)&new_hash, sizeof(rdh->data_hash)))
+            else
             {
-                *out_length = rdh->data_length;
-                return i - rdh->data_length;
+                unsigned char old = data[i - rdh->data_length - 1];
+                unsigned char new = data[i - 1];
+                rdh->data_hash = rk_rolling_hash(rdh->data_hash, old, new, rdh->mod_power);
             }
-        }
-    }
-
-    return NOT_FOUND;
-}
-
-static inline size_t _rk_search_i(rk_search *rks, const char *data, size_t data_length, size_t *out_length)
-{
-    for (size_t i = 0; i < data_length; i++)
-    {
-        for (size_t j = 0; j < rks->data_hashes_length; j++)
-        {
-            rk_data_hash *rdh = &rks->data_hashes[j];
-            if (i < rdh->data_length)
-                continue;
-
-            char old = (char)tolower((unsigned char)data[i - rdh->data_length]);
-            char new = (char)tolower((unsigned char)data[i]);
-            rdh->data_hash = rk_rolling_hash(rdh->data_hash, old, new, rdh->mod_power);
 
             if (!h_set_has(rks->patterns_hashes, (char *)&rdh->data_hash, sizeof(rdh->data_hash)))
             {
@@ -404,16 +378,6 @@ int rk_find_w(rk_search *rks, const char *data, size_t data_length)
     }
 
     return 1;
-}
-
-void rk_rehash_data(rk_search *rks, const char *data, size_t data_length)
-{
-    for (size_t i = 0; i < rks->data_hashes_length; i++)
-    {
-        rk_data_hash *hash = &rks->data_hashes[i];
-        if (hash->data_length < data_length)
-            hash->data_hash = rk_hash(data, hash->data_length);
-    }
 }
 
 void rk_search_end(rk_search *rks)

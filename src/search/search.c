@@ -120,7 +120,7 @@ static inline bm_search_data bm_set_search_data(cli_args *args)
         .buffer = buffer_alloc(args),
         .flags = args->flags,
         .out_p = set_out_path(args),
-        .bmh_search = FLAG_SET(args->flags, FLAG_WORD) ? &bm_find_w : bm_find,
+        .bmh_search = FLAG_SET(args->flags, FLAG_WORD) ? &bm_find_w : &bm_find,
     };
 
     sd.fs_searched = fs_init(NULL);
