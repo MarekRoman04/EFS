@@ -2,3 +2,4 @@
 build/
 tests/test_files
 tests/efs
+tests/temp
