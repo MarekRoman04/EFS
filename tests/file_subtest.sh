@@ -27,7 +27,7 @@ run_tests() {
         local PATTERN_FILE="${FILE%.*}_patterns.txt"
         [ -f "$PATTERN_FILE" ] || continue
 
-        printf "\rChecking $FLAGS: %-60s [%d/%d]" "$FILE" "$COUNT" "$TOTAL"
+        printf "\rChecking $FLAGS: %-40s [%d/%d]" "$FILE" "$COUNT" "$TOTAL"
         run_test "$FLAGS" "$PATTERN_FILE" "$FILE"
     done
 }

@@ -115,8 +115,10 @@ print_summary() {
         echo "$FAIL_COUNT test(s) failed."
         echo "Failed patterns: $FAILED_PATTERNS_FILE"
         $SAVE_FAILED_OUTPUTS && echo "Failed outputs: $FAILED_OUTPUTS_FILE"
+        exit 1
     else
         echo "All tests passed!"
         [ -f "$FAILED_PATTERNS_FILE" ] || rmdir "$OUTPUT_PATH" 2>/dev/null
+        exit 0
     fi
 }
