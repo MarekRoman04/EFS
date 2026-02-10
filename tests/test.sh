@@ -30,7 +30,7 @@ Options:
   -o, --output PATH    Directory for failed tests (default: ./temp)
       --no-print       Disable progress output
   -h, --help           Show this help message
-  --no-print           Disable default search test with no flags
+  -n, --no-print           Disable default search test with no flags
 
 Flags:
   Flags after '--' are passed to efs/grep.
@@ -46,7 +46,7 @@ parse_args() {
     shift
 
     local TEMP
-    TEMP=$(getopt -o aho:f: --long all,help,output:,files:,no-print -n "$SCRIPT_NAME" -- "$@") || exit 1
+    TEMP=$(getopt -o ahno:f: --long all,help,output:,files:,no-print -n "$SCRIPT_NAME" -- "$@") || exit 1
     eval set -- "$TEMP"
 
     while true; do
@@ -61,7 +61,7 @@ parse_args() {
                 TEST_PATH="$2"
                 shift 2
                 ;;
-            --no-print) PRINT=false; shift ;;
+            -n|--no-print) PRINT=false; shift ;;
             --) shift; break ;;
             *) echo "Unknown option: $1"; exit 1 ;;
         esac

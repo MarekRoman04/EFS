@@ -1,4 +1,4 @@
-#include "file_stream.h"
+#include <file_stream.h>
 
 static inline int fs_open(file_stream *fs, const char *f_path);
 
@@ -30,7 +30,7 @@ file_stream *fs_init(const char *f_path)
     file_stream *fs = (file_stream *)malloc(sizeof(file_stream));
     if (!fs)
     {
-        log_info("Error allocating memory!");
+        log_info("Error allocating memory!", NULL);
         return NULL;
     }
     fs->f_path = NULL;

@@ -1,4 +1,4 @@
-#include "algo.h"
+#include <algo.h>
 
 static inline size_t bmh_search(const uint8_t *table, const uint8_t *_table, const char *pattern, uint8_t pattern_length,
                                 const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx);
@@ -8,7 +8,6 @@ static inline size_t bm_search(const uint8_t *bad_table, const uint8_t *good_tab
                                const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx);
 static inline size_t bm_search_i(const uint8_t *bad_table, const uint8_t *good_table, const char *pattern, uint8_t pattern_length,
                                  const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx);
-static inline int is_word_char(char c);
 
 typedef size_t (*bm_search_function)(const uint8_t *, const uint8_t *, const char *, uint8_t, const char *, size_t, uint8_t, uint8_t *);
 bm_search_function bm_functions[2][2] = {
@@ -104,13 +103,13 @@ static inline size_t bmh_search_i(const uint8_t *table, const uint8_t *_table, c
 static inline size_t bm_search(const uint8_t *bad_table, const uint8_t *good_table, const char *pattern, uint8_t pattern_length,
                                const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx)
 {
-    log_error("TO-DO!");
+    log_error("TO-DO!", NULL);
 }
 
 static inline size_t bm_search_i(const uint8_t *bad_table, const uint8_t *good_table, const char *pattern, uint8_t pattern_length,
                                  const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx)
 {
-    log_error("TO-DO!");
+    log_error("TO-DO!", NULL);
 }
 
 /*
@@ -138,7 +137,7 @@ uint8_t *bm_bad_char_table(const char *pattern, uint8_t pattern_length)
  */
 uint8_t *bm_good_suffix_table(const char *pattern, uint8_t pattern_length)
 {
-    log_error("TO-DO!");
+    log_error("TO-DO!", NULL);
 }
 
 int bm_count(bm_data *bmd)

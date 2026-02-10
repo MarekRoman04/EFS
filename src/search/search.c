@@ -1,4 +1,4 @@
-#include "search.h"
+#include <search.h>
 
 static inline char_buffer buffer_alloc(cli_args *args);
 static inline FILE *set_out_path(cli_args *args);
@@ -30,22 +30,15 @@ static inline char_buffer buffer_alloc(cli_args *args)
         buffer.size = args->buffer_size;
         buffer.data = (char *)malloc(sizeof(char) * buffer.size);
         if (!buffer.data)
-            log_error("Error allocating buffer->data!");
+            log_error("Error allocating buffer->data!", NULL);
     }
     else
     {
         buffer.size = DEFAULT_BUFFER_SIZE;
-        while (buffer.size > MIN_BUFFER_SIZE)
-        {
-            buffer.data = (char *)malloc(sizeof(char) * buffer.size);
-            if (buffer.data)
-                break;
-            else
-                buffer.size /= 2;
-        }
+        buffer.data = (char *)malloc(sizeof(char) * buffer.size);
 
         if (!buffer.data)
-            log_error("Error allocating buffer->data!");
+            log_error("Error allocating buffer->data!", NULL);
     }
 
     return buffer;
@@ -61,7 +54,7 @@ static inline FILE *set_out_path(cli_args *args)
         if (!out_p)
         {
             log_errno(0, args->out_path);
-            log_info("Default value will be used");
+            log_info("Default value will be used", NULL);
             out_p = DEFAULT_OUT_PATH;
         }
     }
@@ -79,7 +72,7 @@ static inline int set_rdir_stream(rdir_stream **rds, const char *dir_name)
         int err;
         *rds = rds_init(dir_name, &err);
         if (!rds)
-            log_error("Error allocating rdir stream!");
+            log_error("Error allocating rdir stream!", NULL);
 
         if (err)
         {
@@ -125,7 +118,7 @@ static inline bm_search_data bm_set_search_data(cli_args *args)
 
     sd.fs_searched = fs_init(NULL);
     if (!sd.fs_searched)
-        log_error("Error allocating file stream!");
+        log_error("Error allocating file stream!", NULL);
 
     sd.pattern_length = strlen(args->pattern);
     if (sd.pattern_length > 255)
@@ -133,7 +126,7 @@ static inline bm_search_data bm_set_search_data(cli_args *args)
 
     sd.pattern = (char *)malloc(sizeof(char) * (sd.pattern_length + 1));
     if (!sd.pattern)
-        log_error("Error allocating memory!");
+        log_error("Error allocating memory!", NULL);
 
     strcpy(sd.pattern, args->pattern);
 
@@ -146,7 +139,7 @@ static inline bm_search_data bm_set_search_data(cli_args *args)
 
     sd.bad_char_table = bm_bad_char_table(sd.pattern, (uint8_t)sd.pattern_length);
     if (!sd.bad_char_table)
-        log_error("Error creating bm table!");
+        log_error("Error creating bm table!", NULL);
 
     // if (sd.pattern_length > 16)
     // {
@@ -199,14 +192,14 @@ static inline rk_search_data rk_set_search_data(cli_args *args)
 
     rks.fs_searched = fs_init(args->pattern);
     if (!rks.fs_searched)
-        log_error("Error allocating file stream!");
+        log_error("Error allocating file stream!", NULL);
 
     if (!rks.fs_searched->fp)
-        log_error("Error opening file!");
+        log_error("Error opening file!", NULL);
 
     rks.ls_searched = ls_init_from_fs(rks.fs_searched, rks.buffer.data, rks.buffer.size);
     if (!rks.ls_searched)
-        log_error("Error creating line stream!");
+        log_error("Error creating line stream!", NULL);
 
     rks.patterns = rk_search_data_get_patterns(rks.ls_searched, rks.buffer.size, args->flags);
 
@@ -220,7 +213,7 @@ static inline rk_search_data rk_set_search_data(cli_args *args)
 
     rks.rks = rk_search_init(&rkd);
     if (!rks.rks)
-        log_error("Error initializing rk search!");
+        log_error("Error initializing rk search!", NULL);
 
     return rks;
 }
@@ -235,14 +228,14 @@ static inline rk_patterns rk_search_data_get_patterns(line_stream *ls, size_t ma
     };
 
     if (!rkp.patterns || !rkp.pattern_lengths)
-        log_error("Error allocating pattern array!");
+        log_error("Error allocating pattern array!", NULL);
 
     int read_val;
     while (!(read_val = ls_read(ls)))
     {
         if (ls->line_length > max_length)
         {
-            log_info("Warning: Pattern length exceeds block size, certain search modes may ignore this pattern!");
+            log_info("Warning: Pattern length exceeds block size, certain search modes may ignore this pattern!", NULL);
             continue;
         }
 
@@ -253,7 +246,7 @@ static inline rk_patterns rk_search_data_get_patterns(line_stream *ls, size_t ma
             size_t *new_pattern_lengths = realloc(rkp.pattern_lengths, sizeof(size_t *) * rkp.max_count);
 
             if (!new_patterns || !new_pattern_lengths)
-                log_error("Error allocating pattern array!");
+                log_error("Error allocating pattern array!", NULL);
 
             rkp.patterns = new_patterns;
             rkp.pattern_lengths = new_pattern_lengths;
@@ -261,7 +254,7 @@ static inline rk_patterns rk_search_data_get_patterns(line_stream *ls, size_t ma
 
         rkp.patterns[rkp.pattern_count] = malloc(ls->line_length - 1);
         if (!rkp.patterns[rkp.pattern_count])
-            log_error("Error allocating pattern!");
+            log_error("Error allocating pattern!", NULL);
 
         memcpy(rkp.patterns[rkp.pattern_count], ls->line, ls->line_length - 1);
         rkp.pattern_lengths[rkp.pattern_count] = ls->line_length - 1;
@@ -269,7 +262,7 @@ static inline rk_patterns rk_search_data_get_patterns(line_stream *ls, size_t ma
     }
 
     if (read_val == 1)
-        log_error("Error reading patterns!");
+        log_error("Error reading patterns!", NULL);
 
     if (FLAG_SET(flags, FLAG_IGNORE_CASE))
     {

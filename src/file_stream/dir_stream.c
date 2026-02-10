@@ -1,4 +1,4 @@
-#include "file_stream.h"
+#include <file_stream.h>
 
 static inline int ds_open(dir_stream *ds, const char *dir_name);
 static inline int ds_openat(dir_stream *ds, DIR *dp, const char *dir_name);
@@ -67,7 +67,7 @@ dir_stream *ds_init(const char *dir_name, DIR *dp_at, int *err)
     dir_stream *ds = (dir_stream *)malloc(sizeof(dir_stream));
     if (!ds)
     {
-        log_info("Error allocating memory!");
+        log_info("Error allocating memory!", NULL);
         return NULL;
     }
     ds->dir_name = NULL;
@@ -173,7 +173,7 @@ static inline int rds_open(rdir_stream *rds, const char *dir_name)
     if (rds->rdsi.ds_stack_top - 1 >= rds->rdsi.ds_stack)
         prev_dp = (*(rds->rdsi.ds_stack_top - 1))->dp;
     dir_stream *ds;
-    int err;
+    int err = 0;
     if (*(rds->rdsi.ds_stack_top))
     {
         ds = *rds->rdsi.ds_stack_top;
@@ -218,7 +218,7 @@ rdir_stream *rds_init(const char *dir_name, int *err)
     rds->rdsi.entry_path_length = 0;
     if (!rds->rdsi.entry_path_buffer)
     {
-        log_info("Error allocating memory");
+        log_info("Error allocating memory", NULL);
         free(rds);
         return NULL;
     }
@@ -227,7 +227,7 @@ rdir_stream *rds_init(const char *dir_name, int *err)
     rds->rdsi.ds_stack = (dir_stream **)malloc(sizeof(dir_stream *) * DEFAULT_STACK_SIZE);
     if (!rds->rdsi.ds_stack)
     {
-        log_info("Error allocating memory");
+        log_info("Error allocating memory", NULL);
         free(rds->rdsi.entry_path_buffer);
         free(rds);
         return NULL;

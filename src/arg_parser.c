@@ -1,10 +1,10 @@
-#include "arg_parser.h"
+#include <arg_parser.h>
 
 #define PRINT_HELP printf("%s", HELP_MESSAGE)
-#define ERROR_MISSING_ARGS log_error(MISSING_ARGS_MESSAGE)
+#define ERROR_MISSING_ARGS log_error(MISSING_ARGS_MESSAGE, NULL)
 #define INFO_INVALID_ARG(arg) log_info("Ignoring: %s, unknown option given!", arg)
 #define ERROR_INVALID_ARG_VALUE(arg) log_error("Invalid %s, value given!", arg)
-#define ERROR_MISSING_ARG_VALUE(arg) log_error("Missing %s", arg);
+#define ERROR_MISSING_ARG_VALUE(arg) log_error("Missing %s", arg)
 
 static inline void set_out_path(cli_args *args, const char *value);
 static inline void set_buffer_size(cli_args *args, const char *value);
@@ -26,7 +26,7 @@ const char *HELP_MESSAGE =
     "  -v, --invert-match    Select non-matching lines (ignored in combination with -q or -l)\n"
     "  -w, --word            Match only whole words\n"
     "      --output=FILE     Write output to FILE instead of standard output\n"
-    "      --block-size=N    Sets internal buffer size for disk read operation (default: 4KB - 16KB)\n"
+    "      --buffer-size=N    Sets internal buffer size for disk read operation (default: 16KB)\n"
     "      --thread-count=N  Set number of worker threads\n"
     "      --single-thread   Force single-threaded operation\n"
     "      --help            Display this help and exit\n";
@@ -37,7 +37,7 @@ const long_opt long_opts_map[] = {
     {"block-size", 10, set_buffer_size},
     {"output", 6, set_out_path},
     {"thread-count", 12, set_thread_count},
-    NULL,
+    {NULL, 0, NULL},
 };
 
 const long_flag long_flags_map[] = {
@@ -51,9 +51,7 @@ const long_flag long_flags_map[] = {
     {"invert-match", FLAG_INVERT},
     {"word", FLAG_WORD},
     {"single-thread", FLAG_SINGLE_THREAD},
-    {"", FLAGS_END},
-    NULL,
-};
+    {NULL, 0}};
 
 static inline void set_out_path(cli_args *args, const char *value)
 {
@@ -77,13 +75,13 @@ static inline void set_thread_count(cli_args *args, const char *value)
     size_t count = strtoul(value, &endptr, 10);
 
     if (endptr == value || *endptr != '\0')
-        ERROR_INVALID_ARG_VALUE("--block-size");
+        ERROR_INVALID_ARG_VALUE("--thread-count");
     else
         args->thread_count = (unsigned int)count;
 }
+
 /*
  * Sets cli_arg option based on argv, returns 1 if option consist of 2 argv items,
- * returns -1 on flags end
  */
 static inline int parse_option(cli_args *args, char *argv[])
 {
@@ -92,12 +90,12 @@ static inline int parse_option(cli_args *args, char *argv[])
 
     if (!equal)
     {
-        for (int j = 0; long_flags_map[j].flag; j++)
+        for (int j = 0; long_flags_map[j].flag != NULL; j++)
         {
             if (!strcmp(arg, long_flags_map[j].flag))
             {
                 args->flags |= long_flags_map[j].bit;
-                return long_flags_map[j].bit ? 0 : -1;
+                return 0;
             }
         }
     }
@@ -160,15 +158,21 @@ cli_args parse_args(int argc, char *argv[])
     {
         if (!flags_end && !strncmp(argv[i], "--", 2))
         {
-            int ret_val = parse_option(&args, argv + i);
-            if (ret_val == -1)
+            if (!strcmp(argv[i], "--"))
+            {
+                flags_end = 1;
+                continue;
+            }
+
+            int consumed = parse_option(&args, argv + i);
+            if (consumed == -1)
                 flags_end = 1;
             else
-                i += parse_option(&args, argv + i);
+                i += consumed;
         }
         else if (!flags_end && argv[i][0] == '-')
         {
-            for (int j = 1; j < strlen(argv[i]); j++)
+            for (size_t j = 1; j < strlen(argv[i]); j++)
             {
                 switch (argv[i][j])
                 {
@@ -201,9 +205,11 @@ cli_args parse_args(int argc, char *argv[])
                     break;
 
                 default:
+                {
                     char flag[2] = {argv[i][j], '\0'};
                     INFO_INVALID_ARG(flag);
                     break;
+                }
                 }
             }
         }
@@ -214,6 +220,7 @@ cli_args parse_args(int argc, char *argv[])
                 argv[1] = argv[i];
                 args.pattern = argv[1];
                 args.files = argv + 2;
+                args.file_count = 0;
             }
             else
             {
@@ -223,7 +230,7 @@ cli_args parse_args(int argc, char *argv[])
         }
     }
 
-    if (!args.pattern || !args.files)
+    if (!args.pattern || !args.file_count)
         ERROR_MISSING_ARGS;
 
     return args;

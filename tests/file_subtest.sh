@@ -39,11 +39,17 @@ run_test() {
     local TMP_ID=$RANDOM
 
     ./efs $FLAGS -f -- "$PATTERN_FILE" "$FILE" > /dev/shm/efs_$TMP_ID
-    grep $FLAGS -FH -f "$PATTERN_FILE" -- "$FILE" > /dev/shm/grep_$TMP_ID
+    EFS_RV=$?
 
-    if ! diff -q /dev/shm/efs_$TMP_ID /dev/shm/grep_$TMP_ID >/dev/null; then
+    LC_ALL=C grep $FLAGS -FH -f "$PATTERN_FILE" -- "$FILE" > /dev/shm/grep_$TMP_ID
+    GREP_RV=$?
+
+    if [ "$EFS_RV" -ne "$GREP_RV" ]; then
         ((FAIL_COUNT++))
-        echo "$PATTERN_FILE | $FILE | $FLAGS" >> "$FAILED_PATTERNS_FILE"
+        echo "$FILE | $FLAGS | INVALID RV: EFS=$EFS_RV GREP=$GREP_RV" >> "$FAILED_PATTERNS_FILE"
+    elif ! diff -q /dev/shm/efs_$TMP_ID /dev/shm/grep_$TMP_ID >/dev/null; then
+        ((FAIL_COUNT++))
+        echo "$FILE | $FLAGS | INVALID OUTPUT" >> "$FAILED_PATTERNS_FILE"
     fi
 
     rm -f /dev/shm/efs_$TMP_ID /dev/shm/grep_$TMP_ID

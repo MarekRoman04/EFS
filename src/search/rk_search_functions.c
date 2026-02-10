@@ -56,10 +56,10 @@ int rk_count_search(rk_search_data *rsd)
     int read_val;
     while (!(read_val = ls_read(rsd->ls_searched)))
     {
-        if (!rsd->rk_search_function(rsd->rks,
-                                     rsd->ls_searched->line,
-                                     rsd->ls_searched->line_length,
-                                     FLAG_SET(rsd->flags, FLAG_IGNORE_CASE)) ^
+        if ((!rsd->rk_search_function(rsd->rks,
+                                      rsd->ls_searched->line,
+                                      rsd->ls_searched->line_length,
+                                      FLAG_SET(rsd->flags, FLAG_IGNORE_CASE))) ^
             FLAG_SET(rsd->flags, FLAG_INVERT))
         {
             ret_val = 0;
@@ -85,10 +85,10 @@ int rk_line_number_search(rk_search_data *rsd)
     while (!(read_val = ls_read(rsd->ls_searched)))
     {
         line++;
-        if (!rsd->rk_search_function(rsd->rks,
-                                     rsd->ls_searched->line,
-                                     rsd->ls_searched->line_length,
-                                     FLAG_SET(rsd->flags, FLAG_IGNORE_CASE)) ^
+        if ((!rsd->rk_search_function(rsd->rks,
+                                      rsd->ls_searched->line,
+                                      rsd->ls_searched->line_length,
+                                      FLAG_SET(rsd->flags, FLAG_IGNORE_CASE))) ^
             FLAG_SET(rsd->flags, FLAG_INVERT))
         {
             ret_val = 0;
@@ -111,9 +111,9 @@ int rk_print_search(rk_search_data *rsd)
     int read_val;
     while (!(read_val = ls_read(rsd->ls_searched)))
     {
-        if (!rsd->rk_search_function(rsd->rks,
-                                     rsd->ls_searched->line,
-                                     rsd->ls_searched->line_length, FLAG_SET(rsd->flags, FLAG_IGNORE_CASE)) ^
+        if ((!rsd->rk_search_function(rsd->rks,
+                                      rsd->ls_searched->line,
+                                      rsd->ls_searched->line_length, FLAG_SET(rsd->flags, FLAG_IGNORE_CASE))) ^
             FLAG_SET(rsd->flags, FLAG_INVERT))
         {
             ret_val = 0;

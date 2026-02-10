@@ -6,13 +6,12 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-#include "algo.h"
-#include "arg_parser.h"
-#include "file_stream.h"
-#include "log.h"
+#include <algo.h>
+#include <arg_parser.h>
+#include <file_stream.h>
+#include <log.h>
 
 #define DEFAULT_BUFFER_SIZE 16384 // 16KB
-#define MIN_BUFFER_SIZE 4096      // 4KB
 #define RK_PATTERNS_MIN_SIZE 16
 #define DEFAULT_OUT_PATH stdout;
 
