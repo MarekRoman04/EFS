@@ -1,8 +1,5 @@
-cmake_minimum_required(VERSION 3.10.0)
+cmake_minimum_required(VERSION 3.10)
 project(EFS VERSION 0.8.0 LANGUAGES C)
-
-# Header file directory
-include_directories(include)
 
 # Source files
 set(SOURCES
@@ -29,19 +26,17 @@ set(HEADERS
     include/search.h
 )
 
-if (CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
-
-option(DEBUG_MODE "Enable debug mode" OFF)
-option(LOG_MEMORY "Enable memory allocation, free logging" OFF)
-
-if(DEBUG_MODE)
-    add_compile_definitions(DEBUG)
-endif()
-
-if(LOG_MEMORY)
-    add_compile_definitions(MEM_LOG)
-endif()
-
 add_executable(efs ${SOURCES} ${HEADERS})
+target_include_directories(efs PRIVATE include)
+
+if (CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(efs PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+# Optional memory logging in debug mode
+option(LOG_MEMORY "Enable memory allocation/free logging" OFF)
+
+target_compile_definitions(efs PRIVATE
+    $<$<CONFIG:Debug>:DEBUG>
+    $<$<AND:$<CONFIG:Debug>,$<BOOL:${LOG_MEMORY}>>:MEM_LOG>
+)
