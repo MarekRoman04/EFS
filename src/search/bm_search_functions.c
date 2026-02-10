@@ -1,7 +1,6 @@
-#include "search.h"
+#include <search.h>
 
 static inline bm_data set_bmh_search(bm_search_data *sd);
-static inline bm_data set_bmh_search_line(bm_search_data *sd);
 static inline void ls_init(bm_search_data *sd);
 static inline int read_line(const char *f_path, line_stream *ls, bm_data *bmd);
 int bm_quiet_search(bm_search_data *sd);
@@ -32,21 +31,6 @@ static inline bm_data set_bmh_search(bm_search_data *sd)
     return bmd;
 }
 
-// Initializes bmd for line search
-static inline bm_data set_bmh_search_line(bm_search_data *sd)
-{
-    bm_data bmd = {
-        .bad_char_table = sd->bad_char_table,
-        .good_suffix_table = sd->good_suffix_table,
-        .pattern = sd->pattern,
-        .pattern_length = sd->pattern_length,
-        .idx = 0,
-        .ignore_case = FLAG_SET(sd->flags, FLAG_IGNORE_CASE),
-    };
-
-    return bmd;
-}
-
 // Initializes line stream
 static inline void ls_init(bm_search_data *sd)
 {
@@ -58,7 +42,7 @@ static inline void ls_init(bm_search_data *sd)
     {
         sd->ls_searched = ls_init_from_fs(sd->fs_searched, sd->buffer.data, sd->buffer.size);
         if (!sd->ls_searched)
-            log_error("Error creating line stream!");
+            log_error("Error creating line stream!", NULL);
     }
 }
 
@@ -84,70 +68,65 @@ static inline int read_line(const char *f_path, line_stream *ls, bm_data *bmd)
 int bm_quiet_search(bm_search_data *sd)
 {
     // Proccess input line by line if searching for words
-    if (FLAG_SET(sd->flags, FLAG_WORD))
-    {
-        ls_init(sd);
-        bm_data bmd = set_bmh_search(sd);
+    // if (FLAG_SET(sd->flags, FLAG_WORD))
+    // {
+    ls_init(sd);
+    bm_data bmd = set_bmh_search(sd);
 
-        while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmd) != -1)
-        {
-            if ((!sd->bmh_search(&bmd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
-                return 0;
-        }
+    while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmd) != -1)
+    {
+        if ((!sd->bmh_search(&bmd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+            return 0;
     }
+    // }
     // Buffered search for pattern match
-    else
-    {
-        bm_data bmd = set_bmh_search(sd);
+    // else
+    // {
+    //     bm_data bmd = set_bmh_search(sd);
 
-        while ((bmd.data_length = fs_read(sd->fs_searched, sd->buffer.data, sd->buffer.size)))
-        {
-            if (!sd->bmh_search(&bmd))
-                return 0;
-        }
-    }
+    //     while ((bmd.data_length = fs_read(sd->fs_searched, sd->buffer.data, sd->buffer.size)))
+    //     {
+    //         if ((!sd->bmh_search(&bmd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+    //             return 0;
+    //     }
+    // }
 
     return 1;
 }
 
 int bm_list_search(bm_search_data *sd)
 {
-    int ret_val = 1;
     // Proccess input line by line if searching for words
-    if (FLAG_SET(sd->flags, FLAG_WORD))
+    // if (FLAG_SET(sd->flags, FLAG_WORD))
+    // {
+    ls_init(sd);
+    bm_data bmd = set_bmh_search(sd);
+
+    while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmd) != -1)
     {
-        ls_init(sd);
-        bm_data bmd = set_bmh_search(sd);
-
-        while (read_line(sd->fs_searched->f_path, sd->ls_searched, &bmd) != -1)
+        if ((!sd->bmh_search(&bmd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
         {
-            if ((!sd->bmh_search(&bmd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
-            {
-                ret_val = 0;
-                fprintf(sd->out_p, "%s\n", sd->fs_searched->f_path);
-                break;
-            }
+            fprintf(sd->out_p, "%s\n", sd->fs_searched->f_path);
+            return 0;
         }
-
-        sd->buffer.data = NULL;
     }
+    // }
     // Buffered search for pattern match
-    else
-    {
-        bm_data bmd = set_bmh_search(sd);
+    // else
+    // {
+    //     bm_data bmd = set_bmh_search(sd);
 
-        while ((bmd.data_length = fs_read(sd->fs_searched, sd->buffer.data, sd->buffer.size)))
-        {
-            if (!sd->bmh_search(&bmd))
-            {
-                ret_val = 0;
-                fprintf(sd->out_p, "%s\n", sd->fs_searched->f_path);
-                break;
-            }
-        }
-    }
+    //     while ((bmd.data_length = fs_read(sd->fs_searched, sd->buffer.data, sd->buffer.size)))
+    //     {
+    //         if ((!sd->bmh_search(&bmd)) ^ FLAG_SET(sd->flags, FLAG_INVERT))
+    //         {
+    //             fprintf(sd->out_p, "%s\n", sd->fs_searched->f_path);
+    //             return 0;
+    //         }
+    //     }
+    // }
 
-    return ret_val;
+    return 1;
 }
 
 int bm_count_search(bm_search_data *sd)

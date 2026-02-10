@@ -6,15 +6,13 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <assert.h>
-
-#include "log.h"
+#include <log.h>
 
 #define NOT_FOUND ((size_t)-1)
 
 static inline int is_word_char(char c)
 {
-    return isalnum((unsigned char)c) || c == '_' || c == '-';
+    return isalnum((unsigned char)c) || c == '_';
 }
 
 //---------------------------------
@@ -53,12 +51,12 @@ struct h_set_iterator
 /*
  * Inits empty hash set
  */
-h_set *h_set_init();
+h_set *h_set_init(void);
 /*
  * Check if hash set contains given data
  * if set contains data returns 0 otherwise -1
  */
-int h_set_has(h_set *hs, const char *data, size_t data_length);
+int h_set_find(h_set *hs, const char *data, size_t data_length);
 /*
  * Adds element to hash set,
  * if entries are 2/3 full set is automatically resized

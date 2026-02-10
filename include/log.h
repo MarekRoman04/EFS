@@ -27,18 +27,18 @@ void log_free(void *ptr, const char *file, int line);
 #endif
 
 #define log_error(fmt, ...) \
-    log_error_impl(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+    log_error_impl(__FILE__, __LINE__, fmt, __VA_ARGS__)
 #define log_info(fmt, ...) \
-    log_info_impl(__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+    log_info_impl(__FILE__, __LINE__, fmt, __VA_ARGS__)
 #define log_errno(level, path) \
     log_errno_impl(level, path, __FILE__, __LINE__)
 
 #else
 
 #define log_error(fmt, ...) \
-    log_error_impl(NULL, 0, fmt, ##__VA_ARGS__)
+    log_error_impl(NULL, 0, fmt, __VA_ARGS__)
 #define log_info(fmt, ...) \
-    log_info_impl(NULL, 0, fmt, ##__VA_ARGS__)
+    log_info_impl(NULL, 0, fmt, __VA_ARGS__)
 #define log_errno(level, path) \
     log_errno_impl(level, path, NULL, 0)
 #endif

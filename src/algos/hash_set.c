@@ -1,7 +1,8 @@
 #include <algo.h>
 
-h_set *h_set_init();
+h_set *h_set_init(void);
 int h_set_add(h_set *hs, const char *data, size_t data_length);
+int h_set_find(h_set *hs, const char *data, size_t data_length);
 void h_set_end(h_set *hs);
 h_set_iterator *h_set_iterator_init(h_set *hs);
 const char *h_set_iterator_get(h_set_iterator *hsi, size_t *out_length);
@@ -35,7 +36,7 @@ static inline int h_set_add_entry(h_set_entry *entries, int idx, const char *dat
         h_set_entry *new_entry = malloc(sizeof(h_set_entry));
         if (!new_entry)
         {
-            log_info("Error allocating memory!");
+            log_info("Error allocating memory!", NULL);
             return -1;
         }
 
@@ -60,7 +61,7 @@ static inline int h_set_grow(h_set *hs)
     h_set_entry *new_entries = calloc(new_capacity, sizeof(h_set_entry));
     if (!new_entries)
     {
-        log_info("Error allocating memory!");
+        log_info("Error allocating memory!", NULL);
         return -1;
     }
 
@@ -75,7 +76,7 @@ static inline int h_set_grow(h_set *hs)
             int idx = fnv_1a_hash(entry->data, entry->data_length) % new_capacity;
             if (h_set_add_entry(new_entries, idx, entry->data, entry->data_length))
             {
-                log_info("Error copying entries!");
+                log_info("Error copying entries!", NULL);
                 h_set_free_entries(new_entries, new_capacity);
                 return -1;
             }
@@ -104,12 +105,12 @@ static inline void h_set_free_entries(h_set_entry *entries, int count)
     free(entries);
 }
 
-h_set *h_set_init()
+h_set *h_set_init(void)
 {
     h_set *hs = malloc(sizeof(h_set));
     if (!hs)
     {
-        log_info("Error allocating memory!");
+        log_info("Error allocating memory!", NULL);
         return NULL;
     }
 
@@ -119,7 +120,7 @@ h_set *h_set_init()
     if (!hs->entries)
     {
         free(hs);
-        log_info("Error allocating memory!");
+        log_info("Error allocating memory!", NULL);
         return NULL;
     }
 
@@ -128,12 +129,12 @@ h_set *h_set_init()
 
 int h_set_add(h_set *hs, const char *data, size_t data_length)
 {
-    if (!h_set_has(hs, data, data_length))
+    if (!h_set_find(hs, data, data_length))
         return 1;
 
     if (hs->length > (hs->capacity * 2 / 3) && h_set_grow(hs))
     {
-        log_info("Error resizing table!");
+        log_info("Error resizing table!", NULL);
         return -1;
     }
 
@@ -146,7 +147,7 @@ int h_set_add(h_set *hs, const char *data, size_t data_length)
     return 0;
 }
 
-int h_set_has(h_set *hs, const char *data, size_t data_length)
+int h_set_find(h_set *hs, const char *data, size_t data_length)
 {
     int idx = fnv_1a_hash(data, data_length) % hs->capacity;
     h_set_entry *entry = &hs->entries[idx];
@@ -173,7 +174,7 @@ h_set_iterator *h_set_iterator_init(h_set *hs)
     h_set_iterator *hsi = malloc(sizeof(h_set_iterator));
     if (!hsi)
     {
-        log_info("Error allocating memory!");
+        log_info("Error allocating memory!", NULL);
         return NULL;
     }
 

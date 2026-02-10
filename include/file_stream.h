@@ -8,7 +8,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "log.h"
+
+#include <log.h>
 
 //---------------------------------
 //----FILE STREAM DEFINITIONS------

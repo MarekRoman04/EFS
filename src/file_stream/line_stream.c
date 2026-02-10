@@ -1,4 +1,4 @@
-#include "file_stream.h"
+#include <file_stream.h>
 
 line_stream *ls_init_from_fs(file_stream *fs, char *buffer, size_t buffer_size);
 int ls_read(line_stream *ls);
@@ -9,7 +9,7 @@ line_stream *ls_init_from_fs(file_stream *fs, char *buffer, size_t buffer_size)
     line_stream *ls = (line_stream *)malloc(sizeof(line_stream));
     if (!ls)
     {
-        log_info("Error allocating memory");
+        log_info("Error allocating memory", NULL);
         return NULL;
     }
 
@@ -22,7 +22,7 @@ line_stream *ls_init_from_fs(file_stream *fs, char *buffer, size_t buffer_size)
     ls->line = (char *)malloc(sizeof(char) * DEFAULT_LINE_BUFFER_SIZE);
     if (!ls->line)
     {
-        log_info("Error allocating memory");
+        log_info("Error allocating memory", NULL);
         fclose(ls->lsi.fp);
         free(ls);
         return NULL;
