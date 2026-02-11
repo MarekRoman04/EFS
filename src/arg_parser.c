@@ -8,7 +8,7 @@
 
 static inline void set_out_path(cli_args *args, const char *value);
 static inline void set_buffer_size(cli_args *args, const char *value);
-static inline void set_thread_count(cli_args *args, const char *value);
+// static inline void set_thread_count(cli_args *args, const char *value);
 static inline int parse_option(cli_args *args, char *argv[]);
 cli_args parse_args(int argc, char *argv[]);
 
@@ -27,8 +27,8 @@ const char *HELP_MESSAGE =
     "  -w, --word            Match only whole words\n"
     "      --output=FILE     Write output to FILE instead of standard output\n"
     "      --buffer-size=N    Sets internal buffer size for disk read operation (default: 16KB)\n"
-    "      --thread-count=N  Set number of worker threads\n"
-    "      --single-thread   Force single-threaded operation\n"
+    // "      --thread-count=N  Set number of worker threads\n"
+    // "      --single-thread   Force single-threaded operation\n"
     "      --help            Display this help and exit\n";
 
 const char *MISSING_ARGS_MESSAGE = "Few or no arguments given!, try --help for more info!";
@@ -36,7 +36,7 @@ const char *MISSING_ARGS_MESSAGE = "Few or no arguments given!, try --help for m
 const long_opt long_opts_map[] = {
     {"block-size", 10, set_buffer_size},
     {"output", 6, set_out_path},
-    {"thread-count", 12, set_thread_count},
+    // {"thread-count", 12, set_thread_count},
     {NULL, 0, NULL},
 };
 
@@ -50,7 +50,7 @@ const long_flag long_flags_map[] = {
     {"recursive", FLAG_RECURSIVE},
     {"invert-match", FLAG_INVERT},
     {"word", FLAG_WORD},
-    {"single-thread", FLAG_SINGLE_THREAD},
+    // {"single-thread", FLAG_SINGLE_THREAD},
     {NULL, 0}};
 
 static inline void set_out_path(cli_args *args, const char *value)
@@ -69,16 +69,16 @@ static inline void set_buffer_size(cli_args *args, const char *value)
         args->buffer_size = size;
 }
 
-static inline void set_thread_count(cli_args *args, const char *value)
-{
-    char *endptr = NULL;
-    size_t count = strtoul(value, &endptr, 10);
+// static inline void set_thread_count(cli_args *args, const char *value)
+// {
+//     char *endptr = NULL;
+//     size_t count = strtoul(value, &endptr, 10);
 
-    if (endptr == value || *endptr != '\0')
-        ERROR_INVALID_ARG_VALUE("--thread-count");
-    else
-        args->thread_count = (unsigned int)count;
-}
+//     if (endptr == value || *endptr != '\0')
+//         ERROR_INVALID_ARG_VALUE("--thread-count");
+//     else
+//         args->thread_count = (unsigned int)count;
+// }
 
 /*
  * Sets cli_arg option based on argv, returns 1 if option consist of 2 argv items,
