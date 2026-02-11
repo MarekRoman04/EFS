@@ -4,18 +4,14 @@ static inline size_t bmh_search(const uint8_t *table, const uint8_t *_table, con
                                 const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx);
 static inline size_t bmh_search_i(const uint8_t *table, const uint8_t *_table, const char *pattern, uint8_t pattern_length,
                                   const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx);
-static inline size_t bm_search(const uint8_t *bad_table, const uint8_t *good_table, const char *pattern, uint8_t pattern_length,
-                               const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx);
-static inline size_t bm_search_i(const uint8_t *bad_table, const uint8_t *good_table, const char *pattern, uint8_t pattern_length,
-                                 const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx);
 
 typedef size_t (*bm_search_function)(const uint8_t *, const uint8_t *, const char *, uint8_t, const char *, size_t, uint8_t, uint8_t *);
-bm_search_function bm_functions[2][2] = {
-    {bmh_search, bmh_search_i},
-    {bm_search, bm_search_i}};
+bm_search_function bm_functions[2] = {
+    bmh_search,
+    bmh_search_i,
+};
 
 uint8_t *bm_bad_char_table(const char *pattern, uint8_t pattern_length);
-uint8_t *bm_good_suffix_table(const char *pattern, uint8_t pattern_length);
 int bm_count(bm_data *bmd);
 int bm_find(bm_data *bmd);
 int bm_find_w(bm_data *bmd);
@@ -100,18 +96,6 @@ static inline size_t bmh_search_i(const uint8_t *table, const uint8_t *_table, c
     return NOT_FOUND;
 }
 
-static inline size_t bm_search(const uint8_t *bad_table, const uint8_t *good_table, const char *pattern, uint8_t pattern_length,
-                               const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx)
-{
-    log_error("TO-DO!", NULL);
-}
-
-static inline size_t bm_search_i(const uint8_t *bad_table, const uint8_t *good_table, const char *pattern, uint8_t pattern_length,
-                                 const char *data, size_t data_length, uint8_t start_idx, uint8_t *end_idx)
-{
-    log_error("TO-DO!", NULL);
-}
-
 /*
  *Computes bad char table for given pattern,
  *required in bm and bmh search functions
@@ -131,18 +115,9 @@ uint8_t *bm_bad_char_table(const char *pattern, uint8_t pattern_length)
     return table;
 }
 
-/*
- *Computes good suffix table for given pattern,
- *required in bm search functions
- */
-uint8_t *bm_good_suffix_table(const char *pattern, uint8_t pattern_length)
-{
-    log_error("TO-DO!", NULL);
-}
-
 int bm_count(bm_data *bmd)
 {
-    bm_search_function search = bm_functions[bmd->good_suffix_table != NULL][bmd->ignore_case];
+    bm_search_function search = bm_functions[bmd->ignore_case];
     int found = 0;
     size_t data_loc = 0;
 
@@ -162,7 +137,7 @@ int bm_count(bm_data *bmd)
 
 int bm_find(bm_data *bmd)
 {
-    bm_search_function search = bm_functions[(_Bool)(bmd->good_suffix_table != NULL)][bmd->ignore_case];
+    bm_search_function search = bm_functions[bmd->ignore_case];
     return search(bmd->bad_char_table, bmd->good_suffix_table, bmd->pattern, bmd->pattern_length,
                   bmd->data, bmd->data_length, bmd->idx, &(bmd->idx)) == NOT_FOUND
                ? 1
@@ -171,7 +146,7 @@ int bm_find(bm_data *bmd)
 
 int bm_find_w(bm_data *bmd)
 {
-    bm_search_function search = bm_functions[(_Bool)(bmd->good_suffix_table != NULL)][bmd->ignore_case];
+    bm_search_function search = bm_functions[bmd->ignore_case];
     size_t data_loc = 0;
     size_t bmh_result;
 

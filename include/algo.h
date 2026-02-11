@@ -196,12 +196,6 @@ int rk_find(rk_search *rks, const char *data, size_t data_length, int ignore_cas
  */
 int rk_find_w(rk_search *rks, const char *data, size_t data_length, int ignore_case);
 /*
- * Generates new rolling hashes for given data,
- * hashes longer than data are not changed,
- * expects patterns to remain the same
- */
-void rk_rehash_data(rk_search *rks, const char *data, size_t data_length);
-/*
  * Frees memory used by rk search
  */
 void rk_search_end(rk_search *rk);

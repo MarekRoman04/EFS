@@ -16,7 +16,7 @@
 #define FLAG_RECURSIVE (1 << 6)      // -r or --recursive flag
 #define FLAG_INVERT (1 << 7)         // -v or --invert-match flag
 #define FLAG_WORD (1 << 8)           // -w or --word flag
-#define FLAG_SINGLE_THREAD (1 << 9) // --signle-thread flag
+// #define FLAG_SINGLE_THREAD (1 << 9) // --signle-thread flag
 
 #define FLAG_EMPTY 0
 #define FLAG_SET(flags, bit) (!!(flags & bit))

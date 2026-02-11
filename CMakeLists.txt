@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(EFS VERSION 0.8.0 LANGUAGES C)
+project(EFS VERSION 1.0.0 LANGUAGES C)
 
 # Source files
 set(SOURCES
