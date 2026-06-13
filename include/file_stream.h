@@ -1,13 +1,13 @@
 #ifndef FILE_STREAM_H
 #define FILE_STREAM_H
 
-#define _POSIX_C_SOURCE 200809L
-
 #include <dirent.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <log.h>
 
@@ -15,21 +15,15 @@
 //----FILE STREAM DEFINITIONS------
 //---------------------------------
 
-#define NO_FILE_ERROR (size_t)-1
-
-typedef struct file_stream
-{
-    const char *f_path;
-    FILE *fp;
-} file_stream;
+typedef struct file_stream file_stream;
 
 /*
  * Opens file stream from given file,
  * file_stream->file_path is only shallow copy,
- * file path is used only for debug logs,
+ * if f_path is not NULL file stream opens given file with specified flags
  * if opening failes file_stream->fp and file_stream->f_path are NULL
  */
-file_stream *fs_init(const char *f_path);
+file_stream *fs_init(const char *f_path, int flags);
 /*
  * Opens file in file stream, closes previous file,
  * if closing failes file is not changed,
@@ -42,19 +36,14 @@ int fs_open_file(file_stream *fs, const char *f_path);
  */
 int fs_close_file(file_stream *fs);
 /*
- * Reads data from file stream into given buffer
+ * Reads n bytes of data from file stream into given buffer
  */
-static inline size_t fs_read(file_stream *fs, char *buffer, size_t buffer_size)
-{
-    if (!fs->fp)
-        return NO_FILE_ERROR;
-
-    size_t read = fread(buffer, 1, buffer_size, fs->fp);
-    if (read < buffer_size && ferror(fs->fp))
-        log_errno(0, fs->f_path);
-
-    return read;
-}
+ssize_t fs_read(file_stream *fs, char *buffer, size_t n);
+/*
+ * Returns file path used to open file,
+ * file path is only shallow copy
+ */
+const char *fs_get_path(file_stream *fs);
 /*
  * Frees memory used by file stream, closes opened file
  */
@@ -64,53 +53,32 @@ int fs_end(file_stream *fs);
 //----LINE STREAM DEFINITIONS------
 //---------------------------------
 
-#define DEFAULT_LINE_BUFFER_SIZE 256
-#define LINE_BUFFER_EXP_GROW_LIMIT 64 * 1024 * 1024   // 64 MB
-#define LINE_BUFFER_LINEAR_GROW_SIZE 64 * 1024 * 1024 // 64 MB
-
 typedef struct line_stream line_stream;
-typedef struct ls_internal ls_internal;
 
-struct ls_internal
+typedef struct line
 {
-    FILE *fp;
-    char *buffer;
-    size_t buffer_idx;
-    size_t buffer_read;
-    size_t buffer_size;
-    size_t line_buffer_size;
-};
-
-struct line_stream
-{
-    struct ls_internal lsi;
-    char *line;
-    size_t line_length;
-};
+    char *data;
+    size_t length;
+} line;
 
 /*
  * Initializes line stream from file stream
  */
-line_stream *ls_init_from_fs(file_stream *fs, char *buffer, size_t buffer_size);
+line_stream *ls_init_from_fs(file_stream *fs);
 /*
  * Reads line from file into line_stream line, overwrites previous read,
  * sets line_length to read line length including \n,
- * returns 0 on successful read
- * returns -1 if no data to read from
- * retruns 1 if line is longer than available memory,
- * contains part of the line that was successfully read
+ * if line is longer than available memory contains part
+ * of the line that was successfully read
+ * on error line length is set to -1 and line data is NULL,
+ * on EOF line length is set to 0 and line data is NULL,
  */
-int ls_read(line_stream *ls);
+line ls_read(line_stream *ls);
 /*
- * Changes file in line stream,
+ * Changes file stream to read lines from,
  * resets read buffer
  */
-static inline void ls_change_file(line_stream *ls, FILE *fp)
-{
-    ls->lsi.fp = fp;
-    ls->lsi.buffer_idx = 0;
-    ls->lsi.buffer_read = 0;
-}
+void ls_change_fs(line_stream *ls, file_stream *fs);
 /*
  * Frees memory used by line stream
  */

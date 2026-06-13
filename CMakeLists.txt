@@ -37,6 +37,7 @@ endif()
 option(LOG_MEMORY "Enable memory allocation/free logging" OFF)
 
 target_compile_definitions(efs PRIVATE
+    _POSIX_C_SOURCE=200809L
     $<$<CONFIG:Debug>:DEBUG>
     $<$<AND:$<CONFIG:Debug>,$<BOOL:${LOG_MEMORY}>>:MEM_LOG>
 )
