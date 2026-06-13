@@ -1,4 +1,4 @@
-#include <search.h>
+#include <efs_search.h>
 
 static inline bm_data set_bmh_search(bm_search_data *sd);
 static inline void ls_init(bm_search_data *sd);

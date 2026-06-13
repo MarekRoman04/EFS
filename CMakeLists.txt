@@ -12,9 +12,9 @@ set(SOURCES
     src/file_stream/file_stream.c
     src/file_stream/line_stream.c
     src/log.c
-    src/search/search.c
-    src/search/bm_search_functions.c
-    src/search/rk_search_functions.c
+    src/efs_search/search.c
+    src/efs_search/bm_search_functions.c
+    src/efs_search/rk_search_functions.c
 )
 
 # Header files
@@ -23,7 +23,7 @@ set(HEADERS
     include/arg_parser.h
     include/file_stream.h
     include/log.h
-    include/search.h
+    include/efs_search.h
 )
 
 add_executable(efs ${SOURCES} ${HEADERS})

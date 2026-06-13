@@ -1,4 +1,4 @@
-#include <search.h>
+#include <efs_search.h>
 
 static inline char_buffer buffer_alloc(cli_args *args);
 static inline FILE *set_out_path(cli_args *args);

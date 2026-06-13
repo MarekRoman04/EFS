@@ -1,4 +1,4 @@
-#include <search.h>
+#include <efs_search.h>
 
 int rk_quiet_search(rk_search_data *rsd);
 int rk_list_search(rk_search_data *rsd);
