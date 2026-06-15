@@ -35,4 +35,39 @@ struct line_stream
     size_t line_buffer_size;
 };
 
+//---------------------------------
+//----DIR STREAM DEFINITIONS-------
+//---------------------------------
+
+#define DEFAULT_PATH_SIZE 256
+#define END_OF_DIRECTORY -1
+
+
+struct dir_stream
+{
+    const char *dir_name;
+    int dir_name_length;
+    DIR *dp;
+    struct dirent *entry;
+};
+
+//---------------------------------
+//----RDIR STREAM DEFINITIONS------
+//---------------------------------
+
+struct rdir_stream
+{
+    char *entry_path_buffer;
+    int entry_path_buffer_size;
+    int entry_path_length;
+    dir_stream **ds_stack;
+    dir_stream **ds_stack_top;
+    int ds_stack_size;
+    char *entry_path;
+    struct dirent *entry;
+    struct stat entry_stat;
+};
+
+#define DEFAULT_STACK_SIZE 8
+
 #endif

@@ -1,13 +1,13 @@
 #include "fs_internal.h"
 
-file_stream *fs_init(const char *f_path, int flags);
+file_stream *fs_init(const char *f_path, int flags, int *err);
 int fs_open_file(file_stream *fs, const char *f_path);
 int fs_close_file(file_stream *fs);
 ssize_t fs_read(file_stream *fs, char *buffer, size_t n);
 const char *fs_get_path(file_stream *fs);
 int fs_end(file_stream *fs);
 
-file_stream *fs_init(const char *f_path, int flags)
+file_stream *fs_init(const char *f_path, int flags, int *err)
 {
     file_stream *fs = (file_stream *)calloc(1, sizeof(file_stream));
     if (!fs)
@@ -15,7 +15,7 @@ file_stream *fs_init(const char *f_path, int flags)
 
     fs->flags = flags;
     if (f_path)
-        fs_open_file(fs, f_path);
+        *err = fs_open_file(fs, f_path);
 
     return fs;
 }
@@ -57,31 +57,43 @@ ssize_t fs_read(file_stream *fs, char *buffer, size_t n)
     if (fs->fd < 0)
         return -1;
 
-    ssize_t total_read = 0;
+    size_t total_read = 0;
 
-    do
+    while (total_read < n)
     {
-        if (fs->read_bytes >= fs->buffer_idx)
+        if (fs->buffer_idx >= fs->read_bytes)
         {
-            if ((fs->read_bytes = read(fs->fd, fs->buffer, FS_BUFFER_SIZE)) < 0)
+            fs->read_bytes = read(fs->fd, fs->buffer, FS_BUFFER_SIZE);
+
+            if (fs->read_bytes < 0)
                 return -1;
+
+            if (fs->read_bytes == 0)
+                break;
+
+            fs->buffer_idx = 0;
         }
 
-        ssize_t buffered_size = fs->read_bytes - fs->buffer_idx;
-        ssize_t to_copy = (ssize_t)n < buffered_size ? (ssize_t)n : buffered_size;
+        size_t buffered = fs->read_bytes - fs->buffer_idx;
+        size_t remaining = n - total_read;
+        size_t to_copy = buffered < remaining ? buffered : remaining;
 
         memcpy(buffer + total_read, fs->buffer + fs->buffer_idx, to_copy);
+
+        fs->buffer_idx += to_copy;
         total_read += to_copy;
+    }
 
-    } while (fs->read_bytes && total_read < (ssize_t)n);
-
-    return total_read;
+    return (ssize_t)total_read;
 }
 
 const char *fs_get_path(file_stream *fs) { return fs->f_path; }
 
 int fs_end(file_stream *fs)
 {
+    if (!fs)
+        return 0;
+
     if (fs_close_file(fs))
         return 1;
 
