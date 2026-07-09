@@ -8,11 +8,11 @@
 
 #define FLAGS_END 0
 #define FLAG_COUNT (1 << 0)          // -c or --count flag
-#define FLAG_FILE (1 << 1)           // -f or --file flag
-#define FLAG_IGNORE_CASE (1 << 2)    // -i or --ignore-case flag
-#define FLAG_LINE_NUMBER (1 << 3)    // -n or --line_number flag
-#define FLAG_LIST (1 << 4)           // -l or --list
-#define FLAG_QUIET (1 << 5)          // -q or --quiet flag
+#define FLAG_LINE_NUMBER (1 << 1)    // -n or --line_number flag
+#define FLAG_LIST (1 << 2)           // -l or --list
+#define FLAG_QUIET (1 << 3)          // -q or --quiet flag
+#define FLAG_FILE (1 << 4)           // -f or --file flag
+#define FLAG_IGNORE_CASE (1 << 5)    // -i or --ignore-case flag
 #define FLAG_RECURSIVE (1 << 6)      // -r or --recursive flag
 #define FLAG_INVERT (1 << 7)         // -v or --invert-match flag
 #define FLAG_WORD (1 << 8)           // -w or --word flag

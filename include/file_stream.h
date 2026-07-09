@@ -116,7 +116,9 @@ int ds_end(dir_stream *ds);
 //----RDIR STREAM DEFINITIONS------
 //---------------------------------
 
-#define DEFAULT_STACK_SIZE 8
+#define DEFAULT_STACK_SIZE 8 // move to internal header
+#define END_OF_DIR 0
+#define FILE_NOT_DIR 1
 
 typedef struct rdir_stream rdir_stream;
 /*
@@ -130,6 +132,7 @@ rdir_stream *rds_init(const char *dir_name, int *err);
  * on error NULL is returned and err is set,
  * on end of directory NULL is returned and err is 0
  */
+const char *rds_current_dir(rdir_stream *rds);
 const char *rds_read_entry_name(rdir_stream *rds, int *err);
 /*
  * Closes all currently opened directories and opens stream from given directory,

@@ -15,6 +15,21 @@
 #define RK_PATTERNS_MIN_SIZE 16
 #define DEFAULT_OUT_PATH stdout;
 
+typedef struct pattern_set
+{
+    size_t count;
+    const char **patterns;
+    size_t *lengths;
+} pattern_set;
+
+typedef struct algo algo;
+
+algo *algo_init(const pattern_set *patterns);
+int algo_search(const algo *a, const line *l);
+void algo_end(algo *a);
+
+int search(cli_args *args);
+
 typedef struct char_buffer
 {
     char *data;

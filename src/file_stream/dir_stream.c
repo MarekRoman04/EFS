@@ -278,22 +278,27 @@ rdir_stream *rds_init(const char *dir_name, int *err)
         rds->ds_stack[i] = NULL;
     }
 
-    *err = rds_open(rds, dir_name);
-    if (*err)
-        return rds;
-
-    int dir_name_length = strlen(dir_name);
-    strcpy(rds->entry_path_buffer, dir_name);
-    rds->entry_path_length = dir_name_length;
-    if (dir_name[dir_name_length - 1] != '/' && dir_name[dir_name_length - 1] != '\\')
+    if (dir_name)
     {
-        rds->entry_path_buffer[rds->entry_path_length] = '/';
-        rds->entry_path_length++;
-        rds->entry_path_buffer[rds->entry_path_length] = '\0';
+        *err = rds_open(rds, dir_name);
+        if (*err)
+            return rds;
+
+        int dir_name_length = strlen(dir_name);
+        strcpy(rds->entry_path_buffer, dir_name);
+        rds->entry_path_length = dir_name_length;
+        if (dir_name[dir_name_length - 1] != '/' && dir_name[dir_name_length - 1] != '\\')
+        {
+            rds->entry_path_buffer[rds->entry_path_length] = '/';
+            rds->entry_path_length++;
+            rds->entry_path_buffer[rds->entry_path_length] = '\0';
+        }
     }
 
     return rds;
 }
+
+const char *rds_current_dir(rdir_stream *rds) { return rds->entry_path; }
 
 const char *rds_read_entry_name(rdir_stream *rds, int *err)
 {
@@ -302,7 +307,7 @@ const char *rds_read_entry_name(rdir_stream *rds, int *err)
     {
         *err = *err == END_OF_DIRECTORY ? 0 : *err;
         return NULL;
-    }    
+    }
 
     return rds->entry_path;
 }
@@ -336,6 +341,9 @@ int rds_change_dir(rdir_stream *rds, const char *dir_name)
 
 int rds_end(rdir_stream *rds)
 {
+    if (!rds)
+        return 0;
+
     for (int i = 0; i < rds->ds_stack_size; i++)
     {
         if (ds_end(rds->ds_stack[i]))

@@ -1,16 +1,12 @@
-#include <arg_parser.h>
-#include <search.h>
+#include "arg_parser.h"
+#include "efs_search.h"
 
 #ifndef DEBUG
 
 int main(int argc, char *argv[])
 {
     cli_args args = parse_args(argc, argv);
-
-    if (FLAG_SET(args.flags, FLAG_FILE))
-        return start_file_search(&args);
-    else
-        return start_pattern_search(&args);
+    return search(&args);
 }
 
 #else
@@ -26,22 +22,18 @@ int main(int argc, char *argv[])
     printf("Pattern: %s\n", args.pattern);
     printf("Files: %d\n", args.file_count);
     for (int i = 0; i < args.file_count; i++)
-    {
         printf("%s\n", args.files[i]);
-    }
+
     printf("Flags: %x\n", args.flags);
     printf("Buffer: %ld\n", args.buffer_size);
-    printf("Out path: %s\n", args.out_path);
+    printf("Out path %s\n", args.out_path);
     printf("Threads: %d\n", args.thread_count);
 
     printf("-----------------\n");
     printf("----Searching----\n");
     printf("-----------------\n");
 
-    if (FLAG_SET(args.flags, FLAG_FILE))
-        return start_file_search(&args);
-    else
-        return start_pattern_search(&args);
+    return search(&args);
 }
 
 #endif

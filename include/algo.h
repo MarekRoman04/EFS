@@ -65,6 +65,10 @@ int h_set_find(h_set *hs, const char *data, size_t data_length);
  */
 int h_set_add(h_set *hs, const char *data, size_t data_length);
 /*
+TODO
+*/
+char **h_set_move(h_set *hs, size_t **dest_lengths);
+/*
  * Frees all memory used by hash set
  */
 void h_set_end(h_set *hs);

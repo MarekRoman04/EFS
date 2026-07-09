@@ -1,523 +1,373 @@
 #include <efs_search.h>
 
-static inline char_buffer buffer_alloc(cli_args *args);
-static inline FILE *set_out_path(cli_args *args);
-static inline int set_rdir_stream(rdir_stream **rds, const char *dir_name);
-static inline int read_dir(rdir_stream *rds);
-
-static inline bm_search_data bm_set_search_data(cli_args *args);
-static inline int (*bm_set_search_function(unsigned int flags))(bm_search_data *sd);
-static inline void free_bm_search_data(bm_search_data *sd);
-
-static inline rk_search_data rk_set_search_data(cli_args *args);
-static inline rk_patterns rk_search_data_get_patterns(line_stream *ls, size_t max_length, int flags);
-static inline int (*rk_set_search_function(unsigned int flags))(rk_search_data *);
-static inline void rk_free_search_data(rk_search_data *rks);
-
-static inline int pattern_start_file_search(cli_args *args);
-static inline int pattern_start_rec_search(cli_args *args);
-
-int start_pattern_search(cli_args *args);
-int start_file_search(cli_args *args);
-
-// Allocates buffer from args or uses default size (4KB - 16KB)
-static inline char_buffer buffer_alloc(cli_args *args)
+typedef struct pattern_set_internal
 {
-    char_buffer buffer;
+    size_t count;
+    const char **patterns;
+    size_t *lengths;
 
-    if (args->buffer_size)
-    {
-        buffer.size = args->buffer_size;
-        buffer.data = (char *)malloc(sizeof(char) * buffer.size);
-        if (!buffer.data)
-            log_error("Error allocating buffer->data!", NULL);
-    }
-    else
-    {
-        buffer.size = DEFAULT_BUFFER_SIZE;
-        buffer.data = (char *)malloc(sizeof(char) * buffer.size);
+    const char *pattern;
+    size_t length;
+} pattern_set_internal;
 
-        if (!buffer.data)
-            log_error("Error allocating buffer->data!", NULL);
-    }
-
-    return buffer;
-}
-
-// Sets output path from args or uses default value (stdout)
-static inline FILE *set_out_path(cli_args *args)
+typedef struct search_context
 {
-    FILE *out_p;
-    if (args->out_path)
-    {
-        out_p = fopen(args->out_path, "a");
-        if (!out_p)
-        {
-            log_errno(0, args->out_path);
-            log_info("Default value will be used", NULL);
-            out_p = DEFAULT_OUT_PATH;
-        }
-    }
-    else
-        out_p = DEFAULT_OUT_PATH;
+    cli_args *args;
+    file_stream *fs;
+    line_stream *ls;
+    rdir_stream *rds;
+    pattern_set_internal ps;
+    algo *a;
+} search_context;
 
-    return out_p;
-}
+static int read_line(search_context *ctx, line *l);
+static int init_fs(search_context *ctx);
+static int init_ls(search_context *ctx);
+static int load_file_patterns(search_context *ctx);
+static void free_patterns(pattern_set_internal *ps);
+static int load_pattern(search_context *ctx);
+static int open_file(search_context *ctx);
+static int get_file_rec(search_context *ctx);
+static int get_file(search_context *ctx);
 
-// Sets directory used in rdir stream
-static inline int set_rdir_stream(rdir_stream **rds, const char *dir_name)
+typedef int (*search_function)(search_context *);
+static int search_q(search_context *ctx);
+static int search_l(search_context *ctx);
+static int search_c(search_context *ctx);
+static int search_n(search_context *ctx);
+static int search_default(search_context *ctx);
+static search_function get_search_function(unsigned flag);
+
+static int read_line(search_context *ctx, line *l)
 {
-    if (!(*rds))
+    *l = ls_read(ctx->ls);
+    if (!l->data)
     {
-        int err;
-        *rds = rds_init(dir_name, &err);
-        if (!rds)
-            log_error("Error allocating rdir stream!", NULL);
+        if (l->length != 0)
+            log_error("Error reading line in %s\n", fs_get_path(ctx->fs));
 
-        if (err)
-        {
-            log_errno(0, dir_name);
-            return 1;
-        }
-    }
-    else
-    {
-        if (rds_change_dir(*rds, dir_name))
-        {
-            log_errno(0, dir_name);
-            return 1;
-        }
+        return 1;
     }
 
     return 0;
 }
 
-// Reads entry recursively from directory
-static inline int read_dir(rdir_stream *rds)
+static int init_fs(search_context *ctx)
 {
-    int read_val = rds_read(rds);
-    if (read_val)
+    int err;
+
+    ctx->fs = fs_init(NULL, O_RDONLY, &err);
+    if (!ctx->fs)
     {
-        if (read_val != END_OF_DIRECTORY)
-            log_info("Error reading in %s", rds->entry_path);
+        log_error("Error initializing file stream!\n", NULL);
+        return 1;
     }
 
-    return read_val;
+    return 0;
 }
 
-// Sets search data for buffered search
-static inline bm_search_data bm_set_search_data(cli_args *args)
+static int init_ls(search_context *ctx)
 {
-    bm_search_data sd = {
-        .ls_searched = NULL,
-        .buffer = buffer_alloc(args),
-        .flags = args->flags,
-        .out_p = set_out_path(args),
-        .bmh_search = FLAG_SET(args->flags, FLAG_WORD) ? &bm_find_w : &bm_find,
-    };
-
-    sd.fs_searched = fs_init(NULL);
-    if (!sd.fs_searched)
-        log_error("Error allocating file stream!", NULL);
-
-    sd.pattern_length = strlen(args->pattern);
-    if (sd.pattern_length > 255)
-        log_error("Pattern: %s, too long, use file option instead!", args->pattern);
-
-    sd.pattern = (char *)malloc(sizeof(char) * (sd.pattern_length + 1));
-    if (!sd.pattern)
-        log_error("Error allocating memory!", NULL);
-
-    strcpy(sd.pattern, args->pattern);
-
-    if (FLAG_SET(sd.flags, FLAG_IGNORE_CASE))
+    ctx->ls = ls_init_from_fs(ctx->fs);
+    if (!ctx->ls)
     {
-
-        for (size_t i = 0; i < sd.pattern_length; i++)
-            sd.pattern[i] = (char)tolower((unsigned char)sd.pattern[i]);
+        log_error("Error initializing line stream!\n", NULL);
+        return 1;
     }
 
-    sd.bad_char_table = bm_bad_char_table(sd.pattern, (uint8_t)sd.pattern_length);
-    if (!sd.bad_char_table)
-        log_error("Error creating bm table!", NULL);
-
-    // if (sd.pattern_length > 16)
-    // {
-    //     sd.good_suffix_table = bm_good_suffix_table(sd.pattern, (uint8_t)sd.pattern_length);
-    //     if (!sd.good_suffix_table)
-    //         log_error("Error creating bm table");
-    // }
-    // else
-    sd.good_suffix_table = NULL;
-
-    return sd;
+    return 0;
 }
 
-// Returns bm search function based on flags
-static inline int (*bm_set_search_function(unsigned int flags))(bm_search_data *sd)
+static int init_rds(search_context *ctx)
 {
-    if (FLAG_SET(flags, FLAG_LIST))
-        return &bm_list_search;
-    else if (FLAG_SET(flags, FLAG_COUNT))
-        return &bm_count_search;
-    else if (FLAG_SET(flags, FLAG_LINE_NUMBER))
-        return &bm_line_number_search;
-    else
-        return &bm_print_search;
-}
-
-static inline void free_bm_search_data(bm_search_data *sd)
-{
-    if (sd->out_p != stdout && sd->out_p != stderr)
-        fclose(sd->out_p);
-
-    if (sd->ls_searched)
-        ls_end(sd->ls_searched);
-
-    fs_end(sd->fs_searched);
-    free(sd->bad_char_table);
-    free(sd->good_suffix_table);
-    free(sd->buffer.data);
-    free(sd->pattern);
-}
-
-static inline rk_search_data rk_set_search_data(cli_args *args)
-{
-    rk_search_data rks = {
-        .buffer = buffer_alloc(args),
-        .rk_search_function = FLAG_SET(args->flags, FLAG_WORD) ? &rk_find_w : &rk_find,
-        .out_p = set_out_path(args),
-        .flags = args->flags,
-    };
-
-    rks.fs_searched = fs_init(args->pattern);
-    if (!rks.fs_searched)
-        log_error("Error allocating file stream!", NULL);
-
-    if (!rks.fs_searched->fp)
-        log_error("Error opening file!", NULL);
-
-    rks.ls_searched = ls_init_from_fs(rks.fs_searched, rks.buffer.data, rks.buffer.size);
-    if (!rks.ls_searched)
-        log_error("Error creating line stream!", NULL);
-
-    rks.patterns = rk_search_data_get_patterns(rks.ls_searched, rks.buffer.size, args->flags);
-
-    rk_data rkd = {
-        .count = rks.patterns.pattern_count,
-        .data = NULL,
-        .data_length = 0,
-        .patterns = (const char **)rks.patterns.patterns,
-        .pattern_lengths = rks.patterns.pattern_lengths,
-    };
-
-    rks.rks = rk_search_init(&rkd);
-    if (!rks.rks)
-        log_error("Error initializing rk search!", NULL);
-
-    return rks;
-}
-
-static inline rk_patterns rk_search_data_get_patterns(line_stream *ls, size_t max_length, int flags)
-{
-    rk_patterns rkp = {
-        .pattern_count = 0,
-        .patterns = malloc(sizeof(char *) * RK_PATTERNS_MIN_SIZE),
-        .pattern_lengths = malloc(sizeof(size_t *) * RK_PATTERNS_MIN_SIZE),
-        .max_count = RK_PATTERNS_MIN_SIZE,
-    };
-
-    if (!rkp.patterns || !rkp.pattern_lengths)
-        log_error("Error allocating pattern array!", NULL);
-
-    int read_val;
-    while (!(read_val = ls_read(ls)))
+    ctx->rds = rds_init(NULL, NULL);
+    if (!ctx->rds)
     {
-        if (ls->line_length > max_length)
+        log_error("Error initializing directory stream!\n", NULL);
+        return 1;
+    }
+
+    return 0;
+}
+
+static int init_algo(search_context *ctx)
+{
+    ctx->a = algo_init(&(pattern_set){ctx->ps.count, ctx->ps.patterns, ctx->ps.lengths});
+    if (!ctx->a)
+    {
+        log_error("Error initializing search algorithm!\n", NULL);
+        return 1;
+    }
+
+    return 0;
+}
+
+static int load_file_patterns(search_context *ctx)
+{
+    if (fs_open_file(ctx->fs, ctx->args->pattern))
+    {
+        log_error("Error opening pattern file: %s!\n", ctx->args->pattern);
+        return 1;
+    }
+
+    h_set *pattern_set = h_set_init();
+    if (!pattern_set)
+    {
+        log_error("Error initialzing hash set!\n", NULL);
+        return 1;
+    }
+
+    line l;
+    while (!read_line(ctx, &l))
+    {
+        if (h_set_add(pattern_set, l.data, l.length) == -1)
         {
-            log_info("Warning: Pattern length exceeds block size, certain search modes may ignore this pattern!", NULL);
+            log_error("Error loading pattern!\n", NULL);
+            h_set_end(pattern_set);
+
+            return 1;
+        }
+    }
+
+    if (!l.data && l.length)
+    {
+        h_set_end(pattern_set);
+        return 1;
+    }
+
+    //H_SET needs move rework
+    ctx->ps.count = pattern_set->length;
+    ctx->ps.patterns = (const char **)h_set_move(pattern_set, &ctx->ps.lengths);
+    // h_set_end(pattern_set);
+
+    return 0;
+}
+
+static int load_pattern(search_context *ctx)
+{
+    ctx->ps.pattern = ctx->args->pattern;
+    ctx->ps.length = strlen(ctx->args->pattern);
+
+    ctx->ps.patterns = &ctx->ps.pattern;
+    ctx->ps.lengths = &ctx->ps.length;
+    ctx->ps.count = 1;
+
+    return 0;
+}
+
+static void free_patterns(pattern_set_internal *ps)
+{
+    if (ps->pattern || !ps->patterns)
+        return;
+
+    for (size_t i = 0; i < ps->count; i++)
+        free((char *)ps->patterns[i]);
+
+    free(ps->lengths);
+}
+
+static int open_file(search_context *ctx)
+{
+    int rv = fs_open_file(ctx->fs, *ctx->args->files);
+    if (rv)
+        log_error("Error opening file: %s\n", *ctx->args->files);
+
+    ctx->args->files++;
+    ctx->args->file_count--;
+
+    return rv;
+}
+
+static int get_file_rec(search_context *ctx)
+{
+    while (1)
+    {
+        const char *path;
+        int err;
+
+        while ((path = rds_read_entry_name(ctx->rds, &err)))
+        {
+            if (!fs_open_file(ctx->fs, path))
+                return 0;
+
+            log_error("Error opening file: %s\n", path);
+        }
+
+        if (err)
+            log_error("Error reading in: %s\n", rds_current_dir(ctx->rds));
+
+        if (ctx->args->file_count > 0)
+        {
+            int err = rds_change_dir(ctx->rds, *ctx->args->files);
+            if (err == FILE_NOT_DIR)
+            {
+                if (!open_file(ctx))
+                    return 0;
+
+                continue;
+            }
+            if (err)
+                log_error("Error opening directory: %s\n", *ctx->args->files);
+
+            ctx->args->files++;
+            ctx->args->file_count--;
             continue;
         }
 
-        if (rkp.pattern_count >= rkp.max_count)
-        {
-            rkp.max_count *= 2;
-            char **new_patterns = realloc(rkp.patterns, sizeof(char *) * rkp.max_count);
-            size_t *new_pattern_lengths = realloc(rkp.pattern_lengths, sizeof(size_t *) * rkp.max_count);
-
-            if (!new_patterns || !new_pattern_lengths)
-                log_error("Error allocating pattern array!", NULL);
-
-            rkp.patterns = new_patterns;
-            rkp.pattern_lengths = new_pattern_lengths;
-        }
-
-        rkp.patterns[rkp.pattern_count] = malloc(ls->line_length - 1);
-        if (!rkp.patterns[rkp.pattern_count])
-            log_error("Error allocating pattern!", NULL);
-
-        memcpy(rkp.patterns[rkp.pattern_count], ls->line, ls->line_length - 1);
-        rkp.pattern_lengths[rkp.pattern_count] = ls->line_length - 1;
-        rkp.pattern_count++;
+        return 1;
     }
-
-    if (read_val == 1)
-        log_error("Error reading patterns!", NULL);
-
-    if (FLAG_SET(flags, FLAG_IGNORE_CASE))
-    {
-        for (size_t i = 0; i < rkp.pattern_count; i++)
-        {
-            for (size_t j = 0; j < rkp.pattern_lengths[i]; j++)
-            {
-                rkp.patterns[i][j] = (char)tolower((unsigned char)rkp.patterns[i][j]);
-            }
-        }
-    }
-
-    return rkp;
 }
 
-// Returns rk search function based on flags
-static inline int (*rk_set_search_function(unsigned int flags))(rk_search_data *)
+static int get_file(search_context *ctx)
+{
+    if (ctx->rds)
+        return get_file_rec(ctx);
+
+    while (ctx->args->file_count > 0)
+    {
+        if (!open_file(ctx))
+            return 0;
+    }
+
+    return 1;
+}
+
+static int search_q(search_context *ctx)
+{
+    line l;
+    while (!read_line(ctx, &l))
+    {
+        if (!algo_search(ctx->a, &l))
+        {
+            fs_end(ctx->fs);
+            ls_end(ctx->ls);
+            rds_end(ctx->rds);
+            algo_end(ctx->a);
+
+            exit(EXIT_SUCCESS);
+        }
+    }
+
+    return 1;
+}
+
+static int search_l(search_context *ctx)
+{
+    line l;
+    while (!read_line(ctx, &l))
+    {
+        if (!algo_search(ctx->a, &l))
+        {
+            printf("%s\n", fs_get_path(ctx->fs));
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+static int search_c(search_context *ctx)
+{
+    int rv = 1;
+    line l;
+    size_t count = 0;
+
+    while (!read_line(ctx, &l))
+    {
+        if (!algo_search(ctx->a, &l))
+        {
+            rv = 0;
+            count++;
+        }
+    }
+
+    printf("%s:%ld\n", fs_get_path(ctx->fs), count);
+
+    return rv;
+}
+
+static int search_n(search_context *ctx)
+{
+    int rv = 1;
+    line l;
+    size_t line_num = 0;
+
+    while (!read_line(ctx, &l))
+    {
+        line_num++;
+
+        if (!algo_search(ctx->a, &l))
+        {
+            rv = 0;
+            printf("%s:%ld", fs_get_path(ctx->fs), line_num);
+            fwrite(l.data, 1, l.length, stdout);
+        }
+    }
+
+    return rv;
+}
+
+static int search_default(search_context *ctx)
+{
+    int rv = 1;
+    line l;
+
+    while (!read_line(ctx, &l))
+    {
+        if (!algo_search(ctx->a, &l))
+        {
+            rv = 0;
+            printf("%s:", fs_get_path(ctx->fs));
+            fwrite(l.data, 1, l.length, stdout);
+        }
+    }
+
+    return rv;
+}
+
+static search_function get_search_function(unsigned int flags)
 {
     if (FLAG_SET(flags, FLAG_QUIET))
-        return &rk_quiet_search;
-    else if (FLAG_SET(flags, FLAG_LIST))
-        return &rk_list_search;
-    else if (FLAG_SET(flags, FLAG_COUNT))
-        return &rk_count_search;
-    else if (FLAG_SET(flags, FLAG_LINE_NUMBER))
-        return &rk_line_number_search;
-    else
-        return &rk_print_search;
+        return search_q;
+    if (FLAG_SET(flags, FLAG_LIST))
+        return search_l;
+    if (FLAG_SET(flags, FLAG_COUNT))
+        return search_c;
+    if (FLAG_SET(flags, FLAG_LINE_NUMBER))
+        return search_n;
+
+    return search_default;
 }
 
-static inline void rk_free_search_data(rk_search_data *rks)
+int search(cli_args *args)
 {
-    if (rks->out_p != stdout && rks->out_p != stderr)
-        fclose(rks->out_p);
+    int rv = 1;
+    search_context ctx = {.args = args};
+    search_function s_fn = get_search_function(args->flags);
 
-    for (size_t i = 0; i < rks->patterns.pattern_count; i++)
-    {
-        free(rks->patterns.patterns[i]);
-    }
+    if (init_fs(&ctx) || init_ls(&ctx))
+        goto _err;
 
-    rk_search_end(rks->rks);
-    ls_end(rks->ls_searched);
-    fs_end(rks->fs_searched);
-    free(rks->buffer.data);
-    free(rks->patterns.patterns);
-    free(rks->patterns.pattern_lengths);
-}
+    if (FLAG_SET(args->flags, FLAG_RECURSIVE) && init_rds(&ctx))
+        goto _err;
 
-static inline int pattern_start_file_search(cli_args *args)
-{
-    int ret_val = 1;
-    bm_search_data sd = bm_set_search_data(args);
+    if (FLAG_SET(args->flags, FLAG_FILE) ? load_file_patterns(&ctx) : load_pattern(&ctx))
+        goto _err;
 
-    // Quiet search handled separately to handle early end
-    if (FLAG_SET(sd.flags, FLAG_QUIET))
-    {
-        for (char **current = args->files; current < args->files + args->file_count; current++)
-        {
-            if (fs_open_file(sd.fs_searched, *(current)))
-                continue;
+    if (init_algo(&ctx))
+        goto _err;
 
-            if (!bm_quiet_search(&sd))
-            {
-                ret_val = 0;
-                break;
-            }
-        }
-    }
-    else
-    {
-        int (*search_function)(bm_search_data *sd) = bm_set_search_function(sd.flags);
+    while (!get_file(&ctx))
+        rv = s_fn(&ctx);
 
-        for (char **current = args->files; current < args->files + args->file_count; current++)
-        {
-            if (fs_open_file(sd.fs_searched, *(current)))
-                continue;
+_err:
+    fs_end(ctx.fs);
+    ls_end(ctx.ls);
+    rds_end(ctx.rds);
+    algo_end(ctx.a);
 
-            if (!search_function(&sd))
-                ret_val = 0;
-        }
-    }
+    //Requires hash set changes
+    // free_patterns(&ctx.ps);
 
-    free_bm_search_data(&sd);
-    return ret_val;
-}
-
-static inline int pattern_start_rec_search(cli_args *args)
-{
-    int ret_val = 1;
-    struct stat file_stat;
-    rdir_stream *rds = NULL;
-    bm_search_data sd = bm_set_search_data(args);
-
-    // Quiet search handled separately to handle early end
-    if (FLAG_SET(sd.flags, FLAG_QUIET))
-    {
-        for (char **current = args->files; current < args->files + args->file_count; current++)
-        {
-            if (stat(*(current), &file_stat))
-            {
-                log_errno(0, *(current));
-                continue;
-            }
-
-            if (S_ISDIR(file_stat.st_mode))
-            {
-                if (set_rdir_stream(&rds, *(current)))
-                    continue;
-
-                while (!read_dir(rds))
-                {
-                    if (fs_open_file(sd.fs_searched, rds->entry_path))
-                        continue;
-
-                    if (!bm_quiet_search(&sd))
-                    {
-                        ret_val = 0;
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                if (fs_open_file(sd.fs_searched, *(current)))
-                    continue;
-
-                if (!bm_quiet_search(&sd))
-                {
-                    ret_val = 0;
-                    break;
-                }
-            }
-        }
-    }
-    else
-    {
-        int (*search_function)(bm_search_data *sd) = bm_set_search_function(sd.flags);
-
-        for (char **current = args->files; current < args->files + args->file_count; current++)
-        {
-            if (stat(*(current), &file_stat))
-            {
-                log_errno(0, *(current));
-                continue;
-            }
-
-            if (S_ISDIR(file_stat.st_mode))
-            {
-                if (set_rdir_stream(&rds, *(current)))
-                    continue;
-
-                while (!read_dir(rds))
-                {
-                    if (fs_open_file(sd.fs_searched, rds->entry_path))
-                        continue;
-
-                    if (!search_function(&sd))
-                        ret_val = 0;
-                }
-            }
-            else
-            {
-                if (fs_open_file(sd.fs_searched, *(current)))
-                    continue;
-
-                if (!search_function(&sd))
-                    ret_val = 0;
-            }
-        }
-    }
-
-    if (rds)
-        rds_end(rds);
-
-    free_bm_search_data(&sd);
-    return ret_val;
-}
-
-static inline int file_start_file_search(cli_args *args)
-{
-    int ret_val = 1;
-    rk_search_data rks = rk_set_search_data(args);
-
-    int (*search_function)(rk_search_data *) = rk_set_search_function(rks.flags);
-
-    for (char **current = args->files; current < args->files + args->file_count; current++)
-    {
-        if (fs_open_file(rks.fs_searched, *(current)))
-            continue;
-
-        if (!search_function(&rks))
-            ret_val = 0;
-    }
-
-    rk_free_search_data(&rks);
-    return ret_val;
-}
-
-static inline int file_start_rec_search(cli_args *args)
-{
-    int ret_val = 1;
-    struct stat file_stat;
-    rdir_stream *rds = NULL;
-    rk_search_data rks = rk_set_search_data(args);
-
-    int (*search_function)(rk_search_data *) = rk_set_search_function(rks.flags);
-
-    for (char **current = args->files; current < args->files + args->file_count; current++)
-    {
-        if (stat(*(current), &file_stat))
-        {
-            log_errno(0, *(current));
-            continue;
-        }
-
-        if (S_ISDIR(file_stat.st_mode))
-        {
-            if (set_rdir_stream(&rds, *(current)))
-                continue;
-
-            while (!read_dir(rds))
-            {
-                if (fs_open_file(rks.fs_searched, rds->entry_path))
-                    continue;
-
-                if (!search_function(&rks))
-                    ret_val = 0;
-            }
-        }
-        else
-        {
-            if (fs_open_file(rks.fs_searched, *(current)))
-                continue;
-
-            if (!search_function(&rks))
-                ret_val = 0;
-        }
-    }
-
-    rk_free_search_data(&rks);
-    return ret_val;
-}
-
-int start_pattern_search(cli_args *args)
-{
-    if (FLAG_SET(args->flags, FLAG_RECURSIVE))
-        return pattern_start_rec_search(args);
-    else
-        return pattern_start_file_search(args);
-}
-
-int start_file_search(cli_args *args)
-{
-    if (FLAG_SET(args->flags, FLAG_RECURSIVE))
-        return file_start_rec_search(args);
-    else
-        return file_start_file_search(args);
+    return rv;
 }
