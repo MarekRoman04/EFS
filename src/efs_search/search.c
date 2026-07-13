@@ -2,12 +2,9 @@
 
 typedef struct pattern_set_internal
 {
-    size_t count;
-    const char **patterns;
-    size_t *lengths;
-
     const char *pattern;
     size_t length;
+    pattern_set ps;
 } pattern_set_internal;
 
 typedef struct search_context
@@ -16,7 +13,7 @@ typedef struct search_context
     file_stream *fs;
     line_stream *ls;
     rdir_stream *rds;
-    pattern_set_internal ps;
+    pattern_set_internal patterns;
     algo *a;
 } search_context;
 
@@ -92,7 +89,7 @@ static int init_rds(search_context *ctx)
 
 static int init_algo(search_context *ctx)
 {
-    ctx->a = algo_init(&(pattern_set){ctx->ps.count, ctx->ps.patterns, ctx->ps.lengths});
+    ctx->a = algo_init(&ctx->patterns.ps);
     if (!ctx->a)
     {
         log_error("Error initializing search algorithm!\n", NULL);
@@ -110,7 +107,7 @@ static int load_file_patterns(search_context *ctx)
         return 1;
     }
 
-    h_set *pattern_set = h_set_init();
+    h_set *pattern_set = h_set_init(0);
     if (!pattern_set)
     {
         log_error("Error initialzing hash set!\n", NULL);
@@ -135,35 +132,33 @@ static int load_file_patterns(search_context *ctx)
         return 1;
     }
 
-    //H_SET needs move rework
-    ctx->ps.count = pattern_set->length;
-    ctx->ps.patterns = (const char **)h_set_move(pattern_set, &ctx->ps.lengths);
-    // h_set_end(pattern_set);
+    ctx->patterns.ps.patterns = (const char **)h_set_move_end(pattern_set, &ctx->patterns.ps.lengths, &ctx->patterns.ps.count);
 
     return 0;
 }
 
 static int load_pattern(search_context *ctx)
 {
-    ctx->ps.pattern = ctx->args->pattern;
-    ctx->ps.length = strlen(ctx->args->pattern);
+    ctx->patterns.pattern = ctx->args->pattern;
+    ctx->patterns.length = strlen(ctx->args->pattern);
 
-    ctx->ps.patterns = &ctx->ps.pattern;
-    ctx->ps.lengths = &ctx->ps.length;
-    ctx->ps.count = 1;
+    ctx->patterns.ps.patterns = &ctx->patterns.pattern;
+    ctx->patterns.ps.lengths = &ctx->patterns.length;
+    ctx->patterns.ps.count = 1;
 
     return 0;
 }
 
 static void free_patterns(pattern_set_internal *ps)
 {
-    if (ps->pattern || !ps->patterns)
+    if (ps->pattern || !ps->ps.patterns)
         return;
 
-    for (size_t i = 0; i < ps->count; i++)
-        free((char *)ps->patterns[i]);
+    for (size_t i = 0; i < ps->ps.count; i++)
+        free((char *)ps->ps.patterns[i]);
 
-    free(ps->lengths);
+    free(ps->ps.patterns);
+    free(ps->ps.lengths);
 }
 
 static int open_file(search_context *ctx)
@@ -365,9 +360,7 @@ _err:
     ls_end(ctx.ls);
     rds_end(ctx.rds);
     algo_end(ctx.a);
-
-    //Requires hash set changes
-    // free_patterns(&ctx.ps);
+    free_patterns(&ctx.patterns);
 
     return rv;
 }
