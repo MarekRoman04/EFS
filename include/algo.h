@@ -19,44 +19,18 @@ static inline int is_word_char(char c)
 //----HASH SET DEFITIONS-----------
 //---------------------------------
 
-#define TABLE_MIN_BUCKETS 16
-#define FNV_OFFSET_BASIS 14695981039346656037UL
-#define FNV_PRIME 1099511628211UL
-
 typedef struct h_set h_set;
-typedef struct h_set_entry h_set_entry;
 typedef struct h_set_iterator h_set_iterator;
-
-struct h_set
-{
-    h_set_entry *entries;
-    int capacity;
-    int length;
-};
-
-struct h_set_entry
-{
-    const char *data;
-    size_t data_length;
-    h_set_entry *next;
-};
-
-struct h_set_iterator
-{
-    h_set *hs;
-    int idx;
-    h_set_entry *entry;
-};
 
 /*
  * Inits empty hash set
  */
-h_set *h_set_init(void);
+h_set *h_set_init(int capacity);
 /*
  * Check if hash set contains given data
  * if set contains data returns 0 otherwise -1
  */
-int h_set_find(h_set *hs, const char *data, size_t data_length);
+int h_set_has(h_set *hs, const char *data, size_t data_length);
 /*
  * Adds element to hash set,
  * if entries are 2/3 full set is automatically resized
@@ -67,7 +41,7 @@ int h_set_add(h_set *hs, const char *data, size_t data_length);
 /*
 TODO
 */
-char **h_set_move(h_set *hs, size_t **dest_lengths);
+char **h_set_move_end(h_set *hs, size_t **dest_lengths, size_t *count);
 /*
  * Frees all memory used by hash set
  */
@@ -81,11 +55,7 @@ h_set_iterator *h_set_iterator_init(h_set *hs);
 /*
  * Resets position of hash set iterator
  */
-static inline void h_set_iterator_reset(h_set_iterator *hsi)
-{
-    hsi->idx = 0;
-    hsi->entry = &hsi->hs->entries[0];
-}
+void h_set_iterator_reset(h_set_iterator *hsi);
 /*
  * Gets data from hash set,
  * sets out_length to size of data returned,
