@@ -1,4 +1,4 @@
-#include <algo.h>
+#include <efs_algo.h>
 
 #define H_SET_INITIAL_CAPACITY 8
 #define FNV_OFFSET_BASIS 14695981039346656037UL

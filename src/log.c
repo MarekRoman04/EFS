@@ -12,7 +12,6 @@ void log_error_impl(const char *file, int line, const char *fmt, ...)
     vfprintf(stderr, fmt, args);
     va_end(args);
     fputc('\n', stderr);
-    exit(1);
 }
 
 void log_info_impl(const char *file, int line, const char *fmt, ...)

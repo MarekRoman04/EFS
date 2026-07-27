@@ -33,7 +33,7 @@ static int search_l(search_context *ctx);
 static int search_c(search_context *ctx);
 static int search_n(search_context *ctx);
 static int search_default(search_context *ctx);
-static search_function get_search_function(unsigned flag);
+static search_function get_search_function(unsigned int flag);
 
 static int read_line(search_context *ctx, line *l)
 {
@@ -89,7 +89,7 @@ static int init_rds(search_context *ctx)
 
 static int init_algo(search_context *ctx)
 {
-    ctx->a = algo_init(&ctx->patterns.ps);
+    ctx->a = algo_init(&ctx->patterns.ps, ctx->args->flags);
     if (!ctx->a)
     {
         log_error("Error initializing search algorithm!\n", NULL);
@@ -97,6 +97,12 @@ static int init_algo(search_context *ctx)
     }
 
     return 0;
+}
+
+void pattern_to_lower(char *pattern, size_t pattern_length)
+{
+    for (size_t i = 0; i < pattern_length; i++)
+        pattern[i] = tolower(pattern[i]);
 }
 
 static int load_file_patterns(search_context *ctx)
@@ -134,6 +140,12 @@ static int load_file_patterns(search_context *ctx)
 
     ctx->patterns.ps.patterns = (const char **)h_set_move_end(pattern_set, &ctx->patterns.ps.lengths, &ctx->patterns.ps.count);
 
+    if (FLAG_SET(ctx->args->flags, FLAG_IGNORE_CASE))
+    {
+        for (size_t i = 0; i < ctx->patterns.ps.count; i++)
+            pattern_to_lower((char *)ctx->patterns.ps.patterns[i], ctx->patterns.ps.lengths[i]);
+    }
+
     return 0;
 }
 
@@ -145,6 +157,9 @@ static int load_pattern(search_context *ctx)
     ctx->patterns.ps.patterns = &ctx->patterns.pattern;
     ctx->patterns.ps.lengths = &ctx->patterns.length;
     ctx->patterns.ps.count = 1;
+
+    if (FLAG_SET(ctx->args->flags, FLAG_IGNORE_CASE))
+        pattern_to_lower((char *)ctx->patterns.pattern, ctx->patterns.length);
 
     return 0;
 }
@@ -294,7 +309,7 @@ static int search_n(search_context *ctx)
         if (!algo_search(ctx->a, &l))
         {
             rv = 0;
-            printf("%s:%ld", fs_get_path(ctx->fs), line_num);
+            printf("%s:%ld:", fs_get_path(ctx->fs), line_num);
             fwrite(l.data, 1, l.length, stdout);
         }
     }

@@ -4,22 +4,19 @@ project(EFS VERSION 0.8.0 LANGUAGES C)
 # Source files
 set(SOURCES
     main.c
-    src/algos/bm.c
     src/algos/hash_set.c
-    src/algos/rabin_karp.c
+    src/algos/efs_algo.c
     src/arg_parser.c
     src/file_stream/dir_stream.c
     src/file_stream/file_stream.c
     src/file_stream/line_stream.c
     src/log.c
     src/efs_search/search.c
-    src/efs_search/bm_search_functions.c
-    src/efs_search/rk_search_functions.c
 )
 
 # Header files
 set(HEADERS
-    include/algo.h
+    include/efs_algo.h
     include/arg_parser.h
     include/file_stream.h
     include/log.h
