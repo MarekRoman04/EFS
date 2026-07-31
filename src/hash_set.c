@@ -1,4 +1,4 @@
-#include <efs_algo.h>
+#include <hash_set.h>
 
 #define H_SET_INITIAL_CAPACITY 8
 #define FNV_OFFSET_BASIS 14695981039346656037UL
@@ -12,28 +12,19 @@ struct h_set
     size_t *data_lengths;
 };
 
-struct h_set_iterator
-{
-    h_set *hs;
-    int idx;
-};
-
 h_set *h_set_init(int capacity);
-int h_set_add(h_set *hs, const char *data, size_t data_length);
+int h_set_insert(h_set *hs, const char *data, size_t data_length);
 int h_set_has(h_set *hs, const char *data, size_t data_length);
 char **h_set_move_end(h_set *hs, size_t **dest_lengths, size_t *count);
 void h_set_end(h_set *hs);
 
-h_set_iterator *h_set_iterator_init(h_set *hs);
+void h_set_iterator_init(h_set_iterator *hsi, h_set *hs);
 void h_set_iterator_reset(h_set_iterator *hsi);
 const char *h_set_iterator_get(h_set_iterator *hsi, size_t *out_length);
-void h_set_iterator_end(h_set_iterator *hsi);
 
 static inline uint64_t fnv_1a_hash(const char *data, size_t data_length);
-static int h_set_add_data(h_set *hs, const char *data, size_t data_length);
 static inline int h_set_grow(h_set *h_set);
 
-// FNV-1a hash function
 static inline uint64_t fnv_1a_hash(const char *data, size_t data_length)
 {
     uint64_t hash = FNV_OFFSET_BASIS;
@@ -66,8 +57,15 @@ static inline int h_set_grow(h_set *hs)
 
     for (int i = 0; i < hs->capacity / 2; i++)
     {
-        if (old_data[i])
-            h_set_add_data(hs, old_data[i], old_lengths[i]);
+        if (!old_data[i])
+            continue;
+
+        int idx = fnv_1a_hash(old_data[i], old_lengths[i]) % hs->capacity;
+        while (hs->data[idx])
+            idx = (idx + 1) % hs->capacity;
+
+        hs->data[idx] = old_data[i];
+        hs->data_lengths[i] = old_lengths[i];
     }
 
     free(old_data);
@@ -96,8 +94,11 @@ h_set *h_set_init(int capacity)
     return hs;
 }
 
-static int h_set_add_data(h_set *hs, const char *data, size_t data_length)
+int h_set_insert(h_set *hs, const char *data, size_t data_length)
 {
+    if (hs->length > (hs->capacity * 2 / 3) && h_set_grow(hs))
+        return -1;
+
     int idx = fnv_1a_hash(data, data_length) % hs->capacity;
     while (hs->data[idx])
     {
@@ -107,28 +108,17 @@ static int h_set_add_data(h_set *hs, const char *data, size_t data_length)
         idx = (idx + 1) % hs->capacity;
     }
 
-    hs->data[idx] = data;
-    hs->data_lengths[idx] = data_length;
-    hs->length++;
-
-    return 0;
-}
-
-int h_set_add(h_set *hs, const char *data, size_t data_length)
-{
     char *hs_data = malloc(data_length);
     if (!hs_data)
         return -1;
 
     memcpy(hs_data, data, data_length);
 
-    if (hs->length > (hs->capacity * 2 / 3) && h_set_grow(hs))
-    {
-        free(hs_data);
-        return -1;
-    }
+    hs->data[idx] = hs_data;
+    hs->data_lengths[idx] = data_length;
+    hs->length++;
 
-    return h_set_add_data(hs, hs_data, data_length);
+    return 0;
 }
 
 int h_set_has(h_set *hs, const char *data, size_t data_length)
@@ -185,20 +175,18 @@ void h_set_end(h_set *hs)
     if (!hs)
         return;
 
+    for (int i = 0; i < hs->capacity; i++)
+        free((char *)hs->data[i]);
+
     free(hs->data);
     free(hs->data_lengths);
     free(hs);
 }
 
-h_set_iterator *h_set_iterator_init(h_set *hs)
+void h_set_iterator_init(h_set_iterator *hsi, h_set *hs)
 {
-    h_set_iterator *hsi = malloc(sizeof(h_set_iterator));
-    if (!hsi)
-        return NULL;
-
     hsi->hs = hs;
     hsi->idx = 0;
-    return hsi;
 }
 
 void h_set_iterator_reset(h_set_iterator *hsi) { hsi->idx = 0; }
@@ -206,15 +194,17 @@ void h_set_iterator_reset(h_set_iterator *hsi) { hsi->idx = 0; }
 const char *h_set_iterator_get(h_set_iterator *hsi, size_t *out_length)
 {
     const char *data;
-
-    while (!hsi->hs->data[hsi->idx])
+    while (hsi->idx < hsi->hs->capacity && !hsi->hs->data[hsi->idx])
         hsi->idx++;
 
+    if (hsi->idx >= hsi->hs->capacity)
+        return NULL;
+
     data = hsi->hs->data[hsi->idx];
-    *out_length = hsi->hs->data_lengths[hsi->idx];
+    if (out_length)
+        *out_length = hsi->hs->data_lengths[hsi->idx];
+
     hsi->idx++;
 
     return data;
 }
-
-void h_set_iterator_end(h_set_iterator *hsi) { free(hsi); }
