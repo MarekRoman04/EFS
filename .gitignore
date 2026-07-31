@@ -1,5 +1,7 @@
 .vscode/
 build/
-tests/test_files
-tests/efs
-tests/temp
+tests/
+!tests/test_generator.py
+!tests/test.sh
+!tests/pattern_subtest.sh
+!tests/file_subtest.sh
