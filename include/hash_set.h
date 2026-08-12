@@ -8,13 +8,7 @@
 
 #include <log.h>
 
-#define NOT_FOUND ((size_t)SIZE_MAX)
-
-static inline int is_word_char(char c) { return isalnum((unsigned char)c) || c == '_'; }
-
-//---------------------------------
-//----HASH SET DEFITIONS-----------
-//---------------------------------
+#define NOT_FOUND (SIZE_MAX)
 
 typedef struct h_set h_set;
 typedef struct h_set_iterator

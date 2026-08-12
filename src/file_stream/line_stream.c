@@ -38,10 +38,25 @@ line ls_read(line_stream *ls)
 
             if (ls->fs->read_bytes == 0)
             {
-                if (ls->line_length)
-                    return (line){.data = ls->line, .length = ls->line_length};
-                else
+                if (!ls->line_length)
                     return (line){.data = NULL, .length = 0};
+                else
+                {
+                    if ((ssize_t)ls->line_buffer_size <= ls->line_length)
+                    {
+                        char *new_line = realloc(ls->line, ls->line_buffer_size * 2);
+                        if (!new_line)
+                            return (line){.data = ls->line, .length = ls->line_length};
+                        else
+                        {
+                            ls->line = new_line;
+                            ls->line_buffer_size *= 2;
+                        }
+                    }
+
+                    ls->line[ls->line_length] = '\0';
+                    return (line){.data = ls->line, .length = ls->line_length};
+                }
             }
         }
 
@@ -65,7 +80,10 @@ line ls_read(line_stream *ls)
             ls->line_length++;
 
             if (c == '\n')
-                return (line){.data = ls->line, .length = ls->line_length};
+            {
+                ls->line[ls->line_length - 1] = '\0';
+                return (line){.data = ls->line, .length = ls->line_length - 1};
+            }
         }
     };
 }

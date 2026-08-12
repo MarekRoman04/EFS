@@ -123,7 +123,12 @@ static int load_file_patterns(search_context *ctx)
     line l;
     while (!read_line(ctx, &l))
     {
-        if (h_set_add(pattern_set, l.data, l.length) == -1)
+        if (!l.length)
+            continue;
+
+        printf("Inserting: %s:%ld\n", l.data, l.length);
+
+        if (h_set_insert(pattern_set, l.data, l.length) == -1)
         {
             log_error("Error loading pattern!\n", NULL);
             h_set_end(pattern_set);
@@ -139,6 +144,11 @@ static int load_file_patterns(search_context *ctx)
     }
 
     ctx->patterns.ps.patterns = (const char **)h_set_move_end(pattern_set, &ctx->patterns.ps.lengths, &ctx->patterns.ps.count);
+    if (!ctx->patterns.ps.count)
+    {
+        log_error("Error no patterns found!\n", NULL);
+        return 1;
+    }
 
     if (FLAG_SET(ctx->args->flags, FLAG_IGNORE_CASE))
     {
@@ -309,8 +319,7 @@ static int search_n(search_context *ctx)
         if (!algo_search(ctx->a, &l))
         {
             rv = 0;
-            printf("%s:%ld:", fs_get_path(ctx->fs), line_num);
-            fwrite(l.data, 1, l.length, stdout);
+            printf("%s:%ld:%s\n", fs_get_path(ctx->fs), line_num, l.data);
         }
     }
 
@@ -327,8 +336,7 @@ static int search_default(search_context *ctx)
         if (!algo_search(ctx->a, &l))
         {
             rv = 0;
-            printf("%s:", fs_get_path(ctx->fs));
-            fwrite(l.data, 1, l.length, stdout);
+            printf("%s:%s\n", fs_get_path(ctx->fs), l.data);
         }
     }
 
@@ -366,6 +374,9 @@ int search(cli_args *args)
 
     if (init_algo(&ctx))
         goto _err;
+
+    for (size_t i = 0; i < ctx.patterns.ps.count; i++)
+        printf("%s:%ld\n", ctx.patterns.ps.patterns[i], ctx.patterns.ps.lengths[i]);
 
     while (!get_file(&ctx))
         rv = s_fn(&ctx);

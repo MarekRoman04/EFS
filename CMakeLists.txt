@@ -1,22 +1,22 @@
 cmake_minimum_required(VERSION 3.10)
-project(EFS VERSION 0.8.0 LANGUAGES C)
+project(EFS VERSION 1.1.0 LANGUAGES C)
 
 # Source files
 set(SOURCES
     main.c
-    src/algos/hash_set.c
-    src/algos/efs_algo.c
     src/arg_parser.c
+    src/efs_algo.c
+    src/hash_set.c
+    src/log.c
+    src/search.c
     src/file_stream/dir_stream.c
     src/file_stream/file_stream.c
     src/file_stream/line_stream.c
-    src/log.c
-    src/efs_search/search.c
 )
 
 # Header files
 set(HEADERS
-    include/efs_algo.h
+    include/hash_set.h
     include/arg_parser.h
     include/file_stream.h
     include/log.h
