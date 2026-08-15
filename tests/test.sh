@@ -1,13 +1,12 @@
 #!/bin/bash
 
-TEST_PATH="./test_files"
+TEST_PATH="./test_files/"
 OUTPUT_PATH="./temp"
 FAILED_PATTERNS_FILE=""
 FAILED_OUTPUTS_FILE=""
 SAVE_FAILED_OUTPUTS=false
 RUN_ALL=false
-PRINT=true
-FAIL_COUNT=0
+RUN_DEFAULT=true
 EFS_FLAG_STRINGS=()
 
 FLAG_STRINGS=(
@@ -30,7 +29,7 @@ Options:
   -o, --output PATH    Directory for failed tests (default: ./temp)
       --no-print       Disable progress output
   -h, --help           Show this help message
-  -n, --no-print           Disable default search test with no flags
+  -n, --no-print       Disable default search test with no flags
 
 Flags:
   Flags after '--' are passed to efs/grep.
@@ -61,7 +60,7 @@ parse_args() {
                 TEST_PATH="$2"
                 shift 2
                 ;;
-            -n|--no-print) PRINT=false; shift ;;
+            -n|--no-print) RUN_DEFAULT=false; shift ;;
             --) shift; break ;;
             *) echo "Unknown option: $1"; exit 1 ;;
         esac
@@ -84,41 +83,70 @@ is_valid_flag() {
     return 1
 }
 
+run_flag() {
+    local FLAG="$1"
+    local FAILURE_FILE="$OUTPUT_PATH/job_${JOB_ID}.failed"
+
+    ((JOB_ID++))
+
+    echo -e "=== Running tests with flags: $FLAG ==="
+
+    FAILED_PATTERNS_FILE="$FAILURE_FILE" \
+        "$RUNNER" "$FLAG" &
+
+    PIDS+=("$!")
+
+    while (( $(jobs -rp | wc -l) >= MAX_JOBS )); do
+        wait -n
+    done
+}
+
 run_flag_set() {
     local RUNNER="$1"
+    local MAX_JOBS=8
+    local JOB_ID=0
+    local -a PIDS=()
 
-    if $PRINT; then
-        "$RUNNER"
-        echo
+    if $RUN_DEFAULT; then
+        echo -e "=== Running default test ==="
+        "$RUNNER" &
+        PIDS+=("$!")
     fi
 
     if $RUN_ALL; then
         for FLAG in "${FLAG_STRINGS[@]}"; do
-            echo -e "\n=== Running tests with flags: $FLAG ==="
-            "$RUNNER" "$FLAG"
+            run_flag "$FLAG"
         done
     fi
 
     for FLAG in "${EFS_FLAG_STRINGS[@]}"; do
-        is_valid_flag "$FLAG" || {
+        if ! is_valid_flag "$FLAG"; then
             echo "Skipping invalid flag combination: $FLAG"
             continue
-        }
-        "$RUNNER" "$FLAG"
-        echo
-    done
-}
+        fi
 
-print_summary() {
-    echo
-    if (( FAIL_COUNT > 0 )); then
-        echo "$FAIL_COUNT test(s) failed."
-        echo "Failed patterns: $FAILED_PATTERNS_FILE"
-        $SAVE_FAILED_OUTPUTS && echo "Failed outputs: $FAILED_OUTPUTS_FILE"
-        exit 1
-    else
+        run_flag "$FLAG"
+    done
+
+    local STATUS=0
+
+    for PID in "${PIDS[@]}"; do
+        wait "$PID" || STATUS=1
+    done
+
+    # Merge all per-flag failure files
+    : > "$FAILED_PATTERNS_FILE"
+
+    for FILE in "$OUTPUT_PATH"/job_*.failed; do
+        [ -f "$FILE" ] || continue
+        cat "$FILE" >> "$FAILED_PATTERNS_FILE"
+        rm "$FILE"
+    done
+
+    if [ ! -s "$FAILED_PATTERNS_FILE" ]; then
+        rm "$FAILED_PATTERNS_FILE"
         echo "All tests passed!"
-        [ -f "$FAILED_PATTERNS_FILE" ] || rmdir "$OUTPUT_PATH" 2>/dev/null
-        exit 0
     fi
+
+    return "$STATUS"
 }

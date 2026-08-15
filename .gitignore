@@ -1,6 +1,6 @@
 .vscode/
 build/
-tests/
+tests/**
 !tests/test_generator.py
 !tests/test.sh
 !tests/pattern_subtest.sh

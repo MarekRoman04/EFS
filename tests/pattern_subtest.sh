@@ -27,32 +27,30 @@ run_tests() {
         local PATTERN_FILE="${FILE%.*}_patterns.txt"
         [ -f "$PATTERN_FILE" ] || continue
 
-        printf "\rChecking $FLAGS: %-40s [%d/%d]" "$FILE" "$COUNT" "$TOTAL"
-
         while IFS= read -r PATTERN; do
             run_test "$FLAGS" "$PATTERN" "$FILE"
         done < "$PATTERN_FILE"
+    
     done
-}
 
+    echo "=== Finished tests with flags: $FLAGS ==="
+}
 
 run_test() {
     local FLAGS="$1"
     local PATTERN="$2"
     local FILE="$3"
-    local TMP_ID=$RANDOM
+    local TMP_ID="${BASHPID}_$RANDOM"
 
-    ./efs $FLAGS -- "$PATTERN" "$FILE" > /dev/shm/efs_$TMP_ID
-    EFS_RV=$?
+    ./efs $FLAGS -- "$PATTERN" "$FILE" > "/dev/shm/efs_$TMP_ID"
+    local EFS_RV=$?
 
-    LC_ALL=C grep $FLAGS -FH -- "$PATTERN" "$FILE" > /dev/shm/grep_$TMP_ID
-    GREP_RV=$?
+    LC_ALL=C grep $FLAGS -FH -- "$PATTERN" "$FILE" > "/dev/shm/grep_$TMP_ID"
+    local GREP_RV=$?
 
     if [ "$EFS_RV" -ne "$GREP_RV" ]; then
-        ((FAIL_COUNT++))
         echo "$PATTERN | $FILE | $FLAGS | INVALID RV: efs=$EFS_RV grep=$GREP_RV" >> "$FAILED_PATTERNS_FILE"
     elif ! diff -q /dev/shm/efs_$TMP_ID /dev/shm/grep_$TMP_ID >/dev/null; then
-        ((FAIL_COUNT++))
         echo "$PATTERN | $FILE | $FLAGS | INVALID OUTPUT" >> "$FAILED_PATTERNS_FILE"
     fi
 
@@ -61,4 +59,3 @@ run_test() {
 
 parse_args "$0" "$@"
 run_flag_set run_tests
-print_summary
