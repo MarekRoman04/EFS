@@ -126,8 +126,6 @@ static int load_file_patterns(search_context *ctx)
         if (!l.length)
             continue;
 
-        printf("Inserting: %s:%ld\n", l.data, l.length);
-
         if (h_set_insert(pattern_set, l.data, l.length) == -1)
         {
             log_error("Error loading pattern!\n", NULL);
@@ -190,7 +188,7 @@ static int open_file(search_context *ctx)
 {
     int rv = fs_open_file(ctx->fs, *ctx->args->files);
     if (rv)
-        log_error("Error opening file: %s\n", *ctx->args->files);
+        log_error("Error %d opening file: %s\n", rv, *ctx->args->files);
 
     ctx->args->files++;
     ctx->args->file_count--;
@@ -374,9 +372,6 @@ int search(cli_args *args)
 
     if (init_algo(&ctx))
         goto _err;
-
-    for (size_t i = 0; i < ctx.patterns.ps.count; i++)
-        printf("%s:%ld\n", ctx.patterns.ps.patterns[i], ctx.patterns.ps.lengths[i]);
 
     while (!get_file(&ctx))
         rv = s_fn(&ctx);
