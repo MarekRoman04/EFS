@@ -65,7 +65,7 @@ static inline int h_set_grow(h_set *hs)
             idx = (idx + 1) % hs->capacity;
 
         hs->data[idx] = old_data[i];
-        hs->data_lengths[i] = old_lengths[i];
+        hs->data_lengths[idx] = old_lengths[i];
     }
 
     free(old_data);
